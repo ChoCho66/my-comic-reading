@@ -1,28 +1,29 @@
 use anyhow::{Context, Result, bail};
 use axum::{
     Json, Router,
-    extract::State,
-    response::{Html, IntoResponse},
-    routing::get,
+    body::Body,
+    extract::{Path as AxumPath, State},
+    http::{StatusCode, header},
+    response::{Html, IntoResponse, Response},
+    routing::{get, post},
 };
 use clap::{Parser, ValueEnum};
 use serde::Serialize;
 use std::{
     fs,
-    io::{self, Write},
     net::SocketAddr,
     path::{Path, PathBuf},
     process::Command,
     sync::Arc,
 };
 use tokio::signal;
-use tower_http::services::ServeDir;
 use webbrowser::Browser;
 
 #[derive(Parser, Debug)]
 #[command(name = "comic-reader", version)]
 struct Args {
-    /// Path to the folder that holds comic images (e.g., 001.png, 002.png, ...).
+    /// Optional path to the folder that holds comic images (e.g., 001.png, 002.png, ...).
+    /// If omitted, choose inside the web UI.
     #[arg(short, long)]
     dir: Option<PathBuf>,
 
@@ -44,7 +45,8 @@ enum BrowserChoice {
 
 #[derive(Clone)]
 struct AppState {
-    images: Arc<Vec<String>>,
+    dir: Arc<tokio::sync::Mutex<Option<PathBuf>>>,
+    images: Arc<tokio::sync::Mutex<Vec<String>>>,
 }
 
 #[derive(Serialize)]
@@ -53,29 +55,53 @@ struct ImagesResponse {
     page_size: usize,
 }
 
+#[derive(serde::Deserialize)]
+struct SelectDirRequest {
+    path: String,
+}
+
+#[derive(Serialize)]
+struct SelectDirResponse {
+    ok: bool,
+    count: usize,
+    message: String,
+}
+
 const PAGE_SIZE: usize = 20;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    let image_dir = resolve_directory(args.dir)?;
-    let images = load_images(&image_dir)?;
+    let initial_dir = match args.dir {
+        Some(dir) => Some(validate_directory(dir)?),
+        None => None,
+    };
 
-    if images.is_empty() {
-        bail!(
-            "No images found in {} (looking for .png, .jpg, .jpeg)",
-            image_dir.display()
-        );
+    let initial_images = if let Some(dir) = initial_dir.as_ref() {
+        load_images(dir)?
+    } else {
+        Vec::new()
+    };
+
+    if let Some(dir) = initial_dir.as_ref() {
+        if initial_images.is_empty() {
+            bail!(
+                "No images found in {} (looking for .png, .jpg, .jpeg)",
+                dir.display()
+            );
+        }
     }
 
     let state = AppState {
-        images: Arc::new(images),
+        dir: Arc::new(tokio::sync::Mutex::new(initial_dir)),
+        images: Arc::new(tokio::sync::Mutex::new(initial_images)),
     };
 
     let app = Router::new()
         .route("/", get(index))
         .route("/api/images", get(api_images))
-        .nest_service("/images", ServeDir::new(image_dir))
+        .route("/api/select-dir", post(select_dir))
+        .route("/images/:name", get(get_image))
         .with_state(state);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], args.port));
@@ -104,26 +130,6 @@ async fn main() -> Result<()> {
 async fn shutdown_signal() {
     let _ = signal::ctrl_c().await;
     println!("\nShutting down...");
-}
-
-fn resolve_directory(dir: Option<PathBuf>) -> Result<PathBuf> {
-    if let Some(path) = dir {
-        return validate_directory(path);
-    }
-
-    print!("Enter the path to the image folder: ");
-    io::stdout().flush().ok();
-
-    let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .context("failed to read directory path")?;
-    let trimmed = input.trim();
-    if trimmed.is_empty() {
-        bail!("No directory provided.");
-    }
-
-    validate_directory(PathBuf::from(trimmed))
 }
 
 fn validate_directory(path: PathBuf) -> Result<PathBuf> {
@@ -237,10 +243,118 @@ async fn index() -> impl IntoResponse {
 }
 
 async fn api_images(State(state): State<AppState>) -> impl IntoResponse {
+    let images = state.images.lock().await.clone();
     Json(ImagesResponse {
-        images: (*state.images).clone(),
+        images,
         page_size: PAGE_SIZE,
     })
+}
+
+async fn select_dir(
+    State(state): State<AppState>,
+    Json(payload): Json<SelectDirRequest>,
+) -> impl IntoResponse {
+    let trimmed = payload.path.trim();
+    if trimmed.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(SelectDirResponse {
+                ok: false,
+                count: 0,
+                message: "請輸入資料夾路徑".into(),
+            }),
+        );
+    }
+
+    let path = PathBuf::from(trimmed);
+    let dir = match validate_directory(path.clone()) {
+        Ok(dir) => dir,
+        Err(err) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(SelectDirResponse {
+                    ok: false,
+                    count: 0,
+                    message: format!("{err}"),
+                }),
+            );
+        }
+    };
+
+    let images = match load_images(&dir) {
+        Ok(imgs) => imgs,
+        Err(err) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(SelectDirResponse {
+                    ok: false,
+                    count: 0,
+                    message: format!("{err}"),
+                }),
+            );
+        }
+    };
+
+    {
+        let mut dir_lock = state.dir.lock().await;
+        *dir_lock = Some(dir);
+        let mut imgs_lock = state.images.lock().await;
+        *imgs_lock = images.clone();
+    }
+
+    (
+        StatusCode::OK,
+        Json(SelectDirResponse {
+            ok: true,
+            count: images.len(),
+            message: "載入完成".into(),
+        }),
+    )
+}
+
+async fn get_image(State(state): State<AppState>, AxumPath(name): AxumPath<String>) -> Response {
+    if name.contains("..") || name.contains('/') || name.contains('\\') {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+
+    let dir_opt = state.dir.lock().await.clone();
+    let Some(dir) = dir_opt else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+
+    let path = dir.join(&name);
+    match fs::metadata(&path) {
+        Ok(meta) => {
+            if !meta.is_file() {
+                return StatusCode::NOT_FOUND.into_response();
+            }
+        }
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    }
+
+    match tokio::fs::read(&path).await {
+        Ok(bytes) => {
+            let mime = content_type_for(&name);
+            let mut res = Response::new(Body::from(bytes));
+            res.headers_mut()
+                .insert(header::CONTENT_TYPE, header::HeaderValue::from_static(mime));
+            res
+        }
+        Err(_) => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+fn content_type_for(name: &str) -> &'static str {
+    match Path::new(name)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("png") => "image/png",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        _ => "application/octet-stream",
+    }
 }
 
 const INDEX_HTML: &str = r#"<!doctype html>
@@ -257,6 +371,7 @@ const INDEX_HTML: &str = r#"<!doctype html>
       --text: #e5e7eb;
       --muted: #94a3b8;
       --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      --img-width: 100%;
     }
     * { box-sizing: border-box; }
     body {
@@ -269,7 +384,7 @@ const INDEX_HTML: &str = r#"<!doctype html>
       flex-direction: column;
     }
     header {
-      padding: 16px 24px;
+      padding: 10px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -279,17 +394,12 @@ const INDEX_HTML: &str = r#"<!doctype html>
       background: rgba(15, 23, 42, 0.8);
       backdrop-filter: blur(8px);
       box-shadow: var(--shadow);
+      min-height: 52px;
     }
     .title {
       font-size: 20px;
       font-weight: 700;
       letter-spacing: 0.3px;
-    }
-    .controls {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
     }
     button {
       background: var(--panel);
@@ -304,8 +414,41 @@ const INDEX_HTML: &str = r#"<!doctype html>
     }
     button:hover { border-color: rgba(249, 115, 22, 0.6); transform: translateY(-1px); }
     button.primary { background: var(--accent); color: #111827; border: none; }
-    main { padding: 18px; width: 100%; max-width: 1040px; margin: 0 auto; flex: 1; }
-    .status { color: var(--muted); margin: 12px 0 18px; }
+    main { padding: 12px 14px; width: 100%; max-width: 1280px; margin: 0 auto; flex: 1; }
+    .layout { display: flex; gap: 16px; align-items: flex-start; }
+    .sidebar {
+      width: 240px;
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 70px;
+      align-self: flex-start;
+    }
+    .side-title { font-weight: 700; margin-bottom: 8px; }
+    .side-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+    label { font-size: 13px; color: var(--muted); }
+    input[type="text"], input[type="number"], input[type="range"] {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .hint { font-size: 12px; color: var(--muted); }
+    .content { flex: 1; min-width: 0; }
+    .toolbar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .status { color: var(--muted); margin: 10px 0 12px; }
     .grid {
       display: flex;
       flex-direction: column;
@@ -319,20 +462,24 @@ const INDEX_HTML: &str = r#"<!doctype html>
       box-shadow: var(--shadow);
       display: flex;
       flex-direction: column;
-      padding: 10px;
+      padding: 8px;
+      width: var(--img-width);
+      max-width: 100%;
+      margin: 0 auto;
     }
     .thumb {
       width: 100%;
       height: auto;
-      max-height: none;
       object-fit: contain;
       background: #0b1222;
       cursor: pointer;
+      display: block;
     }
     .caption {
-      padding: 8px 4px 0;
-      font-size: 14px;
+      padding: 6px 2px 2px;
+      font-size: 13px;
       color: var(--muted);
+      text-align: center;
     }
     .pager {
       display: flex;
@@ -393,6 +540,8 @@ const INDEX_HTML: &str = r#"<!doctype html>
     }
     @media (max-width: 640px) {
       header { flex-direction: column; align-items: flex-start; }
+      .layout { flex-direction: column; }
+      .sidebar { width: 100%; position: relative; top: 0; }
       .thumb { height: 200px; }
     }
   </style>
@@ -400,20 +549,46 @@ const INDEX_HTML: &str = r#"<!doctype html>
 <body>
   <header>
     <div class="title">Comic Reader</div>
-    <div class="controls">
-      <button class="primary" id="startSlide">投影片模式</button>
-      <button id="showAll">全部瀏覽</button>
-    </div>
   </header>
   <main>
-    <div class="status" id="status">Loading images...</div>
-    <div class="grid" id="grid"></div>
-    <div class="pager" id="pager">
-      <button id="prevPage">上一頁</button>
-      <span id="pageInfo"></span>
-      <button id="nextPage">下一頁</button>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="side-title">控制面板</div>
+        <div class="side-group">
+          <label for="folderPath">資料夾路徑</label>
+          <div class="row">
+            <input type="text" id="folderPath" placeholder="例如 /Users/you/comics" />
+            <button id="loadBtn">載入</button>
+          </div>
+          <div class="hint">啟動後在此輸入要看的漫畫資料夾，按「載入」。</div>
+        </div>
+        <div class="side-group">
+          <label for="jumpPage">跳到頁數</label>
+          <div class="row">
+            <input type="number" id="jumpPage" min="1" value="1" />
+            <button id="jumpBtn">前往</button>
+          </div>
+        </div>
+        <div class="side-group">
+          <label for="widthSlider">圖片寬度 <span id="widthValue">100%</span></label>
+          <input type="range" id="widthSlider" min="50" max="100" value="100" />
+        </div>
+      </aside>
+      <section class="content">
+        <div class="toolbar">
+          <button class="primary" id="startSlide">投影片模式</button>
+          <button id="showAll">全部瀏覽</button>
+        </div>
+        <div class="status" id="status">請先選擇資料夾</div>
+        <div class="grid" id="grid"></div>
+        <div class="pager" id="pager">
+          <button id="prevPage">上一頁</button>
+          <span id="pageInfo"></span>
+          <button id="nextPage">下一頁</button>
+        </div>
+        <div class="empty" id="empty" style="display:none;">No images found.</div>
+      </section>
     </div>
-    <div class="empty" id="empty" style="display:none;">No images found.</div>
   </main>
 
   <div class="modal" id="modal">
@@ -439,11 +614,20 @@ const INDEX_HTML: &str = r#"<!doctype html>
     const modalEl = document.getElementById("modal");
     const modalImage = document.getElementById("modalImage");
     const modalCaption = document.getElementById("modalCaption");
+    const folderInput = document.getElementById("folderPath");
+    const loadBtn = document.getElementById("loadBtn");
+    const jumpInput = document.getElementById("jumpPage");
+    const jumpBtn = document.getElementById("jumpBtn");
+    const widthSlider = document.getElementById("widthSlider");
+    const widthValue = document.getElementById("widthValue");
     const PAGE_SIZE = 20;
     let images = [];
     let currentPage = 1;
     let slideIndex = 0;
 
+    loadBtn.addEventListener("click", selectDirectory);
+    jumpBtn.addEventListener("click", jumpToPage);
+    widthSlider.addEventListener("input", () => setWidth(widthSlider.value));
     document.getElementById("prevPage").addEventListener("click", () => changePage(-1));
     document.getElementById("nextPage").addEventListener("click", () => changePage(1));
     document.getElementById("startSlide").addEventListener("click", () => startSlideshow(currentPageStartIndex()));
@@ -460,13 +644,39 @@ const INDEX_HTML: &str = r#"<!doctype html>
       }
     });
 
+    async function selectDirectory() {
+      const path = folderInput.value.trim();
+      if (!path) {
+        statusEl.textContent = "請輸入資料夾路徑";
+        return;
+      }
+      statusEl.textContent = "載入中...";
+      try {
+        const res = await fetch("/api/select-dir", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          statusEl.textContent = data.message || "載入失敗";
+          return;
+        }
+        statusEl.textContent = `載入完成，共 ${data.count} 張`;
+        await loadImages();
+      } catch (err) {
+        statusEl.textContent = "載入失敗，請確認路徑";
+        console.error(err);
+      }
+    }
+
     async function loadImages() {
       try {
         const res = await fetch("/api/images");
         const data = await res.json();
         images = data.images || [];
         if (!images.length) {
-          statusEl.textContent = "";
+          statusEl.textContent = "請先選擇資料夾";
           emptyEl.style.display = "block";
           pagerEl.style.display = "none";
           return;
@@ -509,6 +719,7 @@ const INDEX_HTML: &str = r#"<!doctype html>
       pageInfoEl.textContent = `第 ${page} / ${totalPages} 頁`;
       document.getElementById("prevPage").disabled = page <= 1;
       document.getElementById("nextPage").disabled = page >= totalPages;
+      jumpInput.max = totalPages;
     }
 
     function changePage(delta) {
@@ -516,6 +727,19 @@ const INDEX_HTML: &str = r#"<!doctype html>
       const totalPages = Math.max(1, Math.ceil(images.length / PAGE_SIZE));
       if (next < 1 || next > totalPages) return;
       renderPage(next);
+    }
+
+    function jumpToPage() {
+      const totalPages = Math.max(1, Math.ceil(images.length / PAGE_SIZE));
+      const target = parseInt(jumpInput.value, 10);
+      if (!Number.isFinite(target)) return;
+      const page = Math.min(Math.max(target, 1), totalPages);
+      renderPage(page);
+    }
+
+    function setWidth(val) {
+      document.documentElement.style.setProperty("--img-width", `${val}%`);
+      widthValue.textContent = `${val}%`;
     }
 
     function currentPageStartIndex() {
@@ -546,6 +770,7 @@ const INDEX_HTML: &str = r#"<!doctype html>
     }
 
     loadImages();
+    setWidth(widthSlider.value);
   </script>
 </body>
 </html>
