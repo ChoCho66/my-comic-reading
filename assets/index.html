@@ -266,6 +266,7 @@
     const modalEl = document.getElementById("modal");
     const modalImage = document.getElementById("modalImage");
     const modalCaption = document.getElementById("modalCaption");
+    const modalControls = document.querySelector(".modal-controls");
     const sidebarCaption = document.getElementById("sidebarCaption");
     const folderInput = document.getElementById("folderInput");
     const folderDropZone = document.getElementById("folderDropZone");
@@ -315,7 +316,17 @@
     document.getElementById("prevSlideModal").addEventListener("click", () => moveSlide(-1));
     document.getElementById("nextSlideModal").addEventListener("click", () => moveSlide(1));
     document.getElementById("closeModalModal").addEventListener("click", closeModal);
-    modalEl.addEventListener("click", (e) => { if (e.target === modalEl) closeModal(); });
+    modalEl.addEventListener("click", (e) => {
+      // Close when clicking anything except the visible image area (controls stay active)
+      if (modalControls && modalControls.contains(e.target)) return;
+      if (e.target !== modalImage) {
+        closeModal();
+        return;
+      }
+      if (clickedOutsideRenderedImage(e, modalImage)) {
+        closeModal();
+      }
+    });
     document.addEventListener("keydown", (e) => {
       const isFormField = e.target instanceof HTMLElement &&
         ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName);
@@ -480,6 +491,27 @@
 
     function closeModal() {
       modalEl.classList.remove("active");
+    }
+
+    function clickedOutsideRenderedImage(event, imgEl) {
+      if (!imgEl) return false;
+      const rect = imgEl.getBoundingClientRect();
+      const naturalW = imgEl.naturalWidth;
+      const naturalH = imgEl.naturalHeight;
+      if (!naturalW || !naturalH || !rect.width || !rect.height) return false;
+
+      const scale = Math.min(rect.width / naturalW, rect.height / naturalH);
+      const displayW = naturalW * scale;
+      const displayH = naturalH * scale;
+      const offsetX = (rect.width - displayW) / 2;
+      const offsetY = (rect.height - displayH) / 2;
+
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      const withinX = x >= offsetX && x <= offsetX + displayW;
+      const withinY = y >= offsetY && y <= offsetY + displayH;
+      return !(withinX && withinY);
     }
 
     function cleanupLocalUrls() {
