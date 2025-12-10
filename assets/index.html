@@ -274,10 +274,24 @@
         if (e.key === "ArrowRight") moveSlide(1);
         if (e.key === "ArrowLeft") moveSlide(-1);
         if (e.key === "Escape") closeModal();
+        if (e.key === "a" || e.key === "A") {
+          closeModal();
+          renderPage(currentPage);
+        }
         return;
       }
 
       if (isFormField) return;
+      if (e.key === "s" || e.key === "S") {
+        startSlideshow();
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "a" || e.key === "A") {
+        renderPage(currentPage);
+        e.preventDefault();
+        return;
+      }
       if (e.key === "ArrowRight") {
         changePage(1);
         e.preventDefault();
