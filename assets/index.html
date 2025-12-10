@@ -201,10 +201,10 @@
               <button class="primary" id="chooseFolder">選擇資料夾</button>
               <input type="file" id="folderInput" webkitdirectory directory multiple hidden />
             </div>
-            <div class="label">點擊按鈕或拖曳資料夾到此區域</div>
+            <div class="label">點擊按鈕或將資料夾拖曳到整個瀏覽器</div>
             <div class="folder-name" id="folderLabel">尚未選擇資料夾</div>
           </div>
-          <div class="hint">支援拖曳整個資料夾進來，或點「選擇資料夾」。</div>
+          <div class="hint">支援在頁面任意位置拖曳整個資料夾，或點「選擇資料夾」。</div>
         </div>
         <div class="side-group">
           <div class="side-label">瀏覽模式</div>
@@ -282,6 +282,11 @@
     let slideIndex = 0;
     let lastSlideIndex = 0;
 
+    function isFileDrag(event) {
+      const dt = event && event.dataTransfer;
+      return !!dt && Array.from(dt.types || []).includes("Files");
+    }
+
     folderPickerBtn.addEventListener("click", () => folderInput.click());
     folderInput.addEventListener("change", () => {
       if (folderInput.files && folderInput.files.length > 0) {
@@ -290,20 +295,13 @@
       folderInput.value = "";
     });
     folderDropZone.addEventListener("dragover", (e) => {
+      if (!isFileDrag(e)) return;
       e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
       folderDropZone.classList.add("dragover");
     });
     folderDropZone.addEventListener("dragleave", () => folderDropZone.classList.remove("dragover"));
-    folderDropZone.addEventListener("drop", async (e) => {
-      e.preventDefault();
-      folderDropZone.classList.remove("dragover");
-      const files = await extractFilesFromDataTransfer(e.dataTransfer);
-      if (!files.length) {
-        statusEl.textContent = "沒有收到資料夾內容，請再試一次";
-        return;
-      }
-      handleLocalFiles(files, "拖曳資料夾");
-    });
+    folderDropZone.addEventListener("drop", (e) => handleDropEvent(e, "拖曳資料夾"));
     pageSelect.addEventListener("change", onSelectPage);
     widthSlider.addEventListener("input", () => setWidth(widthSlider.value));
     document.getElementById("prevPage").addEventListener("click", () => changePage(-1));
@@ -362,6 +360,18 @@
         e.preventDefault();
       }
     });
+
+    window.addEventListener("dragover", (e) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      folderDropZone.classList.add("dragover");
+    });
+    window.addEventListener("dragleave", (e) => {
+      if (!isFileDrag(e)) return;
+      folderDropZone.classList.remove("dragover");
+    });
+    window.addEventListener("drop", (e) => handleDropEvent(e, "拖曳資料夾（全畫面）"));
 
     async function loadImagesFromServer() {
       try {
@@ -558,6 +568,19 @@
       statusEl.textContent = `${sourceLabel || "本地資料夾"}：共 ${images.length} 張`;
       emptyEl.style.display = images.length ? "none" : "block";
       renderPage(1);
+    }
+
+    async function handleDropEvent(event, sourceLabel = "拖曳資料夾") {
+      if (!isFileDrag(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      folderDropZone.classList.remove("dragover");
+      const files = await extractFilesFromDataTransfer(event.dataTransfer);
+      if (!files.length) {
+        statusEl.textContent = "沒有收到資料夾內容，請再試一次";
+        return;
+      }
+      handleLocalFiles(files, sourceLabel);
     }
 
     function entryToFiles(entry) {
