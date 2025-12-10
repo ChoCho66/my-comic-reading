@@ -383,53 +383,25 @@ const INDEX_HTML: &str = r#"<!doctype html>
       display: flex;
       flex-direction: column;
     }
-    header {
-      padding: 10px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      position: sticky;
-      top: 0;
-      background: rgba(15, 23, 42, 0.8);
-      backdrop-filter: blur(8px);
-      box-shadow: var(--shadow);
-      min-height: 52px;
-    }
-    .title {
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: 0.3px;
-    }
-    button {
-      background: var(--panel);
-      color: var(--text);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 10px 14px;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      font-weight: 600;
-      letter-spacing: 0.2px;
-    }
-    button:hover { border-color: rgba(249, 115, 22, 0.6); transform: translateY(-1px); }
-    button.primary { background: var(--accent); color: #111827; border: none; }
     main { padding: 12px 14px; width: 100%; max-width: 1280px; margin: 0 auto; flex: 1; }
     .layout { display: flex; gap: 16px; align-items: flex-start; }
     .sidebar {
-      width: 240px;
+      width: 260px;
       background: var(--panel);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 12px;
-      padding: 12px;
+      padding: 14px;
       box-shadow: var(--shadow);
       position: sticky;
-      top: 70px;
+      top: 16px;
       align-self: flex-start;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
     }
-    .side-title { font-weight: 700; margin-bottom: 8px; }
-    .side-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
-    label { font-size: 13px; color: var(--muted); }
+    .app-title { font-size: 20px; font-weight: 800; letter-spacing: 0.5px; }
+    .side-group { display: flex; flex-direction: column; gap: 8px; }
+    .side-label { font-size: 13px; color: var(--muted); font-weight: 600; }
     input[type="text"], input[type="number"], input[type="range"] {
       width: 100%;
       padding: 8px 10px;
@@ -440,15 +412,23 @@ const INDEX_HTML: &str = r#"<!doctype html>
     }
     .row { display: flex; gap: 8px; align-items: center; }
     .hint { font-size: 12px; color: var(--muted); }
-    .content { flex: 1; min-width: 0; }
-    .toolbar {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-bottom: 10px;
-      flex-wrap: wrap;
+    button {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 9px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      width: 100%;
     }
-    .status { color: var(--muted); margin: 10px 0 12px; }
+    button:hover { border-color: rgba(249, 115, 22, 0.6); transform: translateY(-1px); }
+    button.primary { background: var(--accent); color: #111827; border: none; }
+    .controls-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .content { flex: 1; min-width: 0; }
+    .status { color: var(--muted); margin: 8px 0 12px; }
     .grid {
       display: flex;
       flex-direction: column;
@@ -481,20 +461,13 @@ const INDEX_HTML: &str = r#"<!doctype html>
       color: var(--muted);
       text-align: center;
     }
-    .pager {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 10px;
-      margin-top: 18px;
-      flex-wrap: wrap;
-    }
+    .pager { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .pager span { color: var(--muted); font-weight: 600; }
     /* Modal */
     .modal {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.88);
       display: none;
       align-items: center;
       justify-content: center;
@@ -503,10 +476,10 @@ const INDEX_HTML: &str = r#"<!doctype html>
     }
     .modal.active { display: flex; }
     .modal-content {
-      background: rgba(0, 0, 0, 0.9);
+      background: transparent;
       border: none;
       border-radius: 0;
-      padding: 12px;
+      padding: 0;
       width: 100vw;
       height: 100vh;
       max-width: 100vw;
@@ -514,48 +487,50 @@ const INDEX_HTML: &str = r#"<!doctype html>
       box-shadow: none;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      position: relative;
     }
     .modal img {
       width: 100%;
       height: 100%;
-      max-width: none;
-      max-height: none;
       object-fit: contain;
-      border-radius: 6px;
       background: #0f172a;
       flex: 1;
     }
-    .modal-header {
+    .modal-controls {
+      position: absolute;
+      left: 16px;
+      top: 16px;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: var(--muted);
-      font-weight: 600;
+      flex-direction: column;
+      gap: 8px;
+      width: 140px;
+      background: rgba(15, 23, 42, 0.65);
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(6px);
     }
+    .modal-caption { color: var(--muted); font-size: 13px; text-align: left; }
     .empty {
       text-align: center;
       color: var(--muted);
       margin-top: 50px;
     }
     @media (max-width: 640px) {
-      header { flex-direction: column; align-items: flex-start; }
       .layout { flex-direction: column; }
       .sidebar { width: 100%; position: relative; top: 0; }
       .thumb { height: 200px; }
+      .modal-controls { width: auto; right: 16px; left: 16px; flex-direction: row; flex-wrap: wrap; }
     }
   </style>
 </head>
 <body>
-  <header>
-    <div class="title">Comic Reader</div>
-  </header>
   <main>
     <div class="layout">
       <aside class="sidebar">
-        <div class="side-title">控制面板</div>
+        <div class="app-title">Comic Reader</div>
         <div class="side-group">
-          <label for="folderPath">資料夾路徑</label>
+          <div class="side-label">資料夾路徑</div>
           <div class="row">
             <input type="text" id="folderPath" placeholder="例如 /Users/you/comics" />
             <button id="loadBtn">載入</button>
@@ -563,29 +538,41 @@ const INDEX_HTML: &str = r#"<!doctype html>
           <div class="hint">啟動後在此輸入要看的漫畫資料夾，按「載入」。</div>
         </div>
         <div class="side-group">
-          <label for="jumpPage">跳到頁數</label>
-          <div class="row">
-            <input type="number" id="jumpPage" min="1" value="1" />
-            <button id="jumpBtn">前往</button>
+          <div class="side-label">瀏覽模式</div>
+          <div class="controls-grid">
+            <button class="primary" id="startSlide">投影片</button>
+            <button id="showAll">全部瀏覽</button>
           </div>
         </div>
         <div class="side-group">
-          <label for="widthSlider">圖片寬度 <span id="widthValue">100%</span></label>
+          <div class="side-label">分頁控制</div>
+          <div class="controls-grid">
+            <button id="prevPage">上一頁</button>
+            <button id="nextPage">下一頁</button>
+          </div>
+          <div class="row">
+            <input type="number" id="jumpPage" min="1" value="1" />
+            <button id="jumpBtn">跳到</button>
+          </div>
+          <div class="hint" id="pageInfo">第 0 / 0 頁</div>
+        </div>
+        <div class="side-group">
+          <div class="side-label">圖片寬度 <span id="widthValue">100%</span></div>
           <input type="range" id="widthSlider" min="50" max="100" value="100" />
+        </div>
+        <div class="side-group">
+          <div class="side-label">投影片控制</div>
+          <div class="controls-grid">
+            <button id="prevSlide">上一張</button>
+            <button id="nextSlide">下一張</button>
+          </div>
+          <button id="closeModal">關閉投影片</button>
+          <div class="hint" id="sidebarCaption">尚未開始</div>
         </div>
       </aside>
       <section class="content">
-        <div class="toolbar">
-          <button class="primary" id="startSlide">投影片模式</button>
-          <button id="showAll">全部瀏覽</button>
-        </div>
         <div class="status" id="status">請先選擇資料夾</div>
         <div class="grid" id="grid"></div>
-        <div class="pager" id="pager">
-          <button id="prevPage">上一頁</button>
-          <span id="pageInfo"></span>
-          <button id="nextPage">下一頁</button>
-        </div>
         <div class="empty" id="empty" style="display:none;">No images found.</div>
       </section>
     </div>
@@ -593,13 +580,11 @@ const INDEX_HTML: &str = r#"<!doctype html>
 
   <div class="modal" id="modal">
     <div class="modal-content">
-      <div class="modal-header">
-        <div id="modalCaption"></div>
-        <div>
-          <button id="prevSlide">上一張</button>
-          <button id="nextSlide">下一張</button>
-          <button id="closeModal">關閉</button>
-        </div>
+      <div class="modal-controls">
+        <button id="prevSlideModal">上一張</button>
+        <button id="nextSlideModal">下一張</button>
+        <button id="closeModalModal">關閉</button>
+        <div class="modal-caption" id="modalCaption">尚未開始</div>
       </div>
       <img id="modalImage" alt="Slide" />
     </div>
@@ -607,13 +592,13 @@ const INDEX_HTML: &str = r#"<!doctype html>
 
   <script>
     const gridEl = document.getElementById("grid");
-    const pagerEl = document.getElementById("pager");
     const pageInfoEl = document.getElementById("pageInfo");
     const statusEl = document.getElementById("status");
     const emptyEl = document.getElementById("empty");
     const modalEl = document.getElementById("modal");
     const modalImage = document.getElementById("modalImage");
     const modalCaption = document.getElementById("modalCaption");
+    const sidebarCaption = document.getElementById("sidebarCaption");
     const folderInput = document.getElementById("folderPath");
     const loadBtn = document.getElementById("loadBtn");
     const jumpInput = document.getElementById("jumpPage");
@@ -635,6 +620,9 @@ const INDEX_HTML: &str = r#"<!doctype html>
     document.getElementById("prevSlide").addEventListener("click", () => moveSlide(-1));
     document.getElementById("nextSlide").addEventListener("click", () => moveSlide(1));
     document.getElementById("closeModal").addEventListener("click", closeModal);
+    document.getElementById("prevSlideModal").addEventListener("click", () => moveSlide(-1));
+    document.getElementById("nextSlideModal").addEventListener("click", () => moveSlide(1));
+    document.getElementById("closeModalModal").addEventListener("click", closeModal);
     modalEl.addEventListener("click", (e) => { if (e.target === modalEl) closeModal(); });
     document.addEventListener("keydown", (e) => {
       if (modalEl.classList.contains("active")) {
@@ -678,7 +666,6 @@ const INDEX_HTML: &str = r#"<!doctype html>
         if (!images.length) {
           statusEl.textContent = "請先選擇資料夾";
           emptyEl.style.display = "block";
-          pagerEl.style.display = "none";
           return;
         }
         statusEl.textContent = `共 ${images.length} 張，分頁顯示，每頁 ${PAGE_SIZE} 張`;
@@ -762,7 +749,9 @@ const INDEX_HTML: &str = r#"<!doctype html>
     function updateSlide() {
       const name = images[slideIndex];
       modalImage.src = `/images/${name}`;
-      modalCaption.textContent = `${slideIndex + 1} / ${images.length} - ${name}`;
+      const captionText = `${slideIndex + 1} / ${images.length} - ${name}`;
+      modalCaption.textContent = captionText;
+      sidebarCaption.textContent = captionText;
     }
 
     function closeModal() {
