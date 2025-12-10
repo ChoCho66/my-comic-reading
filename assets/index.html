@@ -104,6 +104,30 @@
     }
     .pager { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .pager span { color: var(--muted); font-weight: 600; }
+    .drop-zone {
+      border: 1px dashed rgba(255, 255, 255, 0.25);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      transition: border-color 0.15s ease, background 0.15s ease;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .drop-zone.dragover {
+      border-color: rgba(249, 115, 22, 0.8);
+      background: rgba(249, 115, 22, 0.08);
+    }
+    .drop-zone .label {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .drop-zone .folder-name {
+      font-weight: 600;
+      color: var(--text);
+      word-break: break-all;
+    }
     /* Modal */
     .modal {
       position: fixed;
@@ -172,11 +196,15 @@
         <div class="app-title">Comic Reader</div>
         <div class="side-group">
           <div class="side-label">資料夾路徑</div>
-          <div class="row">
-            <input type="text" id="folderPath" placeholder="例如 /Users/you/comics" />
-            <button id="loadBtn">載入</button>
+          <div id="folderDropZone" class="drop-zone">
+            <div class="row">
+              <button class="primary" id="chooseFolder">選擇資料夾</button>
+              <input type="file" id="folderInput" webkitdirectory directory multiple hidden />
+            </div>
+            <div class="label">點擊按鈕或拖曳資料夾到此區域</div>
+            <div class="folder-name" id="folderLabel">尚未選擇資料夾</div>
           </div>
-          <div class="hint">啟動後在此輸入要看的漫畫資料夾，按「載入」。</div>
+          <div class="hint">支援拖曳整個資料夾進來，或點「選擇資料夾」。</div>
         </div>
         <div class="side-group">
           <div class="side-label">瀏覽模式</div>
@@ -239,18 +267,42 @@
     const modalImage = document.getElementById("modalImage");
     const modalCaption = document.getElementById("modalCaption");
     const sidebarCaption = document.getElementById("sidebarCaption");
-    const folderInput = document.getElementById("folderPath");
-    const loadBtn = document.getElementById("loadBtn");
+    const folderInput = document.getElementById("folderInput");
+    const folderDropZone = document.getElementById("folderDropZone");
+    const folderLabel = document.getElementById("folderLabel");
+    const folderPickerBtn = document.getElementById("chooseFolder");
     const pageSelect = document.getElementById("pageSelect");
     const widthSlider = document.getElementById("widthSlider");
     const widthValue = document.getElementById("widthValue");
     const PAGE_SIZE = 20;
     let images = [];
+    const localObjectUrls = [];
     let currentPage = 1;
     let slideIndex = 0;
     let lastSlideIndex = 0;
 
-    loadBtn.addEventListener("click", selectDirectory);
+    folderPickerBtn.addEventListener("click", () => folderInput.click());
+    folderInput.addEventListener("change", () => {
+      if (folderInput.files && folderInput.files.length > 0) {
+        handleLocalFiles(folderInput.files, "選擇資料夾");
+      }
+      folderInput.value = "";
+    });
+    folderDropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      folderDropZone.classList.add("dragover");
+    });
+    folderDropZone.addEventListener("dragleave", () => folderDropZone.classList.remove("dragover"));
+    folderDropZone.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      folderDropZone.classList.remove("dragover");
+      const files = await extractFilesFromDataTransfer(e.dataTransfer);
+      if (!files.length) {
+        statusEl.textContent = "沒有收到資料夾內容，請再試一次";
+        return;
+      }
+      handleLocalFiles(files, "拖曳資料夾");
+    });
     pageSelect.addEventListener("change", onSelectPage);
     widthSlider.addEventListener("input", () => setWidth(widthSlider.value));
     document.getElementById("prevPage").addEventListener("click", () => changePage(-1));
@@ -300,43 +352,24 @@
       }
     });
 
-    async function selectDirectory() {
-      const path = folderInput.value.trim();
-      if (!path) {
-        statusEl.textContent = "請輸入資料夾路徑";
-        return;
-      }
-      statusEl.textContent = "載入中...";
-      try {
-        const res = await fetch("/api/select-dir", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ path }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          statusEl.textContent = data.message || "載入失敗";
-          return;
-        }
-        statusEl.textContent = `載入完成，共 ${data.count} 張`;
-        await loadImages();
-      } catch (err) {
-        statusEl.textContent = "載入失敗，請確認路徑";
-        console.error(err);
-      }
-    }
-
-    async function loadImages() {
+    async function loadImagesFromServer() {
       try {
         const res = await fetch("/api/images");
         const data = await res.json();
-        images = data.images || [];
+        const names = data.images || [];
+        cleanupLocalUrls();
+        images = names.map((name) => ({
+          name,
+          src: `/images/${encodeURIComponent(name)}`,
+        }));
         if (!images.length) {
           statusEl.textContent = "請先選擇資料夾";
           emptyEl.style.display = "block";
           return;
         }
+        emptyEl.style.display = "none";
         statusEl.textContent = `共 ${images.length} 張，分頁顯示，每頁 ${PAGE_SIZE} 張`;
+        folderLabel.textContent = "使用伺服器端資料夾";
         renderPage(1);
       } catch (err) {
         statusEl.textContent = "Failed to load images.";
@@ -351,19 +384,20 @@
 
       gridEl.innerHTML = "";
       slice.forEach((name, idx) => {
+        const item = typeof name === "string" ? { name, src: `/images/${encodeURIComponent(name)}` } : name;
         const card = document.createElement("div");
         card.className = "card";
 
         const img = document.createElement("img");
         img.className = "thumb";
-        img.src = `/images/${name}`;
-        img.alt = name;
+        img.src = item.src;
+        img.alt = item.name;
         img.loading = "lazy";
         img.addEventListener("click", () => startSlideshow(start + idx));
 
         const cap = document.createElement("div");
         cap.className = "caption";
-        cap.textContent = name;
+        cap.textContent = item.name;
 
         card.appendChild(img);
         card.appendChild(cap);
@@ -437,9 +471,9 @@
 
     function updateSlide() {
       lastSlideIndex = slideIndex;
-      const name = images[slideIndex];
-      modalImage.src = `/images/${name}`;
-      const captionText = `${slideIndex + 1} / ${images.length} - ${name}`;
+      const item = images[slideIndex];
+      modalImage.src = item.src;
+      const captionText = `${slideIndex + 1} / ${images.length} - ${item.name}`;
       modalCaption.textContent = captionText;
       sidebarCaption.textContent = captionText;
     }
@@ -448,7 +482,110 @@
       modalEl.classList.remove("active");
     }
 
-    loadImages();
+    function cleanupLocalUrls() {
+      localObjectUrls.splice(0).forEach((url) => URL.revokeObjectURL(url));
+    }
+
+    function deriveFolderName(files) {
+      if (!files.length) return "";
+      const relPath = files[0].webkitRelativePath || files[0].name;
+      const parts = relPath.split("/");
+      return parts.length > 1 ? parts[0] : relPath;
+    }
+
+    function isImageFile(name) {
+      return /\.(png|jpe?g)$/i.test(name);
+    }
+
+    function sortByName(a, b) {
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+    }
+
+    function handleLocalFiles(fileList, sourceLabel) {
+      const files = Array.from(fileList || []);
+      const imageFiles = files.filter((file) => isImageFile(file.name));
+      if (!imageFiles.length) {
+        statusEl.textContent = "資料夾裡沒有可用的圖片 (.png/.jpg/.jpeg)";
+        emptyEl.style.display = "block";
+        return;
+      }
+
+      cleanupLocalUrls();
+      const mapped = imageFiles.map((file) => {
+        const url = URL.createObjectURL(file);
+        localObjectUrls.push(url);
+        return {
+          name: file.webkitRelativePath || file.name,
+          src: url,
+        };
+      });
+
+      images = mapped.sort(sortByName);
+      const folderName = deriveFolderName(imageFiles);
+      folderLabel.textContent = folderName || "已選擇資料夾";
+      statusEl.textContent = `${sourceLabel || "本地資料夾"}：共 ${images.length} 張`;
+      emptyEl.style.display = images.length ? "none" : "block";
+      renderPage(1);
+    }
+
+    function entryToFiles(entry) {
+      return new Promise((resolve) => {
+        if (entry.isFile) {
+          entry.file(
+            (file) => {
+              const fullPath = entry.fullPath || file.name;
+              if (!file.webkitRelativePath && fullPath) {
+                Object.defineProperty(file, "webkitRelativePath", {
+                  value: fullPath.replace(/^\//, ""),
+                  configurable: true,
+                });
+              }
+              resolve([file]);
+            },
+            () => resolve([])
+          );
+        } else if (entry.isDirectory) {
+          const reader = entry.createReader();
+          const entries = [];
+          const readEntries = () => {
+            reader.readEntries(
+              (batch) => {
+                if (!batch.length) {
+                  Promise.all(entries.map((ent) => entryToFiles(ent))).then((all) =>
+                    resolve(all.flat())
+                  );
+                  return;
+                }
+                entries.push(...batch);
+                readEntries();
+              },
+              () => resolve([])
+            );
+          };
+          readEntries();
+        } else {
+          resolve([]);
+        }
+      });
+    }
+
+    async function extractFilesFromDataTransfer(dataTransfer) {
+      if (!dataTransfer) return [];
+      const items = Array.from(dataTransfer.items || []);
+      const entryPromises = items
+        .map((item) => (typeof item.webkitGetAsEntry === "function" ? item.webkitGetAsEntry() : null))
+        .filter(Boolean)
+        .map((entry) => entryToFiles(entry));
+
+      if (entryPromises.length) {
+        const nested = await Promise.all(entryPromises);
+        return nested.flat();
+      }
+
+      return Array.from(dataTransfer.files || []);
+    }
+
+    loadImagesFromServer();
     setWidth(widthSlider.value);
   </script>
 </body>
