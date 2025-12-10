@@ -625,10 +625,24 @@ const INDEX_HTML: &str = r#"<!doctype html>
     document.getElementById("closeModalModal").addEventListener("click", closeModal);
     modalEl.addEventListener("click", (e) => { if (e.target === modalEl) closeModal(); });
     document.addEventListener("keydown", (e) => {
+      const isFormField = e.target instanceof HTMLElement &&
+        ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName);
+
       if (modalEl.classList.contains("active")) {
         if (e.key === "ArrowRight") moveSlide(1);
         if (e.key === "ArrowLeft") moveSlide(-1);
         if (e.key === "Escape") closeModal();
+        return;
+      }
+
+      if (isFormField) return;
+      if (e.key === "ArrowRight") {
+        changePage(1);
+        e.preventDefault();
+      }
+      if (e.key === "ArrowLeft") {
+        changePage(-1);
+        e.preventDefault();
       }
     });
 
