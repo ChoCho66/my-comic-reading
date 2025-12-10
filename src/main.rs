@@ -304,11 +304,11 @@ const INDEX_HTML: &str = r#"<!doctype html>
     }
     button:hover { border-color: rgba(249, 115, 22, 0.6); transform: translateY(-1px); }
     button.primary { background: var(--accent); color: #111827; border: none; }
-    main { padding: 18px; width: 100%; max-width: 1280px; margin: 0 auto; flex: 1; }
+    main { padding: 18px; width: 100%; max-width: 1040px; margin: 0 auto; flex: 1; }
     .status { color: var(--muted); margin: 12px 0 18px; }
     .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      display: flex;
+      flex-direction: column;
       gap: 14px;
     }
     .card {
@@ -319,16 +319,18 @@ const INDEX_HTML: &str = r#"<!doctype html>
       box-shadow: var(--shadow);
       display: flex;
       flex-direction: column;
+      padding: 10px;
     }
     .thumb {
       width: 100%;
-      height: 280px;
+      height: auto;
+      max-height: none;
       object-fit: contain;
       background: #0b1222;
       cursor: pointer;
     }
     .caption {
-      padding: 10px 12px;
+      padding: 8px 4px 0;
       font-size: 14px;
       color: var(--muted);
     }
@@ -349,29 +351,33 @@ const INDEX_HTML: &str = r#"<!doctype html>
       display: none;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 0;
       z-index: 10;
     }
     .modal.active { display: flex; }
     .modal-content {
-      background: #0b1222;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 14px;
-      padding: 16px;
-      max-width: 90vw;
-      max-height: 90vh;
-      box-shadow: var(--shadow);
+      background: rgba(0, 0, 0, 0.9);
+      border: none;
+      border-radius: 0;
+      padding: 12px;
+      width: 100vw;
+      height: 100vh;
+      max-width: 100vw;
+      max-height: 100vh;
+      box-shadow: none;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      width: min(1100px, 100%);
+      gap: 10px;
     }
     .modal img {
-      max-width: 100%;
-      max-height: 75vh;
+      width: 100%;
+      height: 100%;
+      max-width: none;
+      max-height: none;
       object-fit: contain;
-      border-radius: 8px;
+      border-radius: 6px;
       background: #0f172a;
+      flex: 1;
     }
     .modal-header {
       display: flex;
