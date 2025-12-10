@@ -558,7 +558,7 @@ const INDEX_HTML: &str = r#"<!doctype html>
         </div>
         <div class="side-group">
           <div class="side-label">圖片寬度 <span id="widthValue">100%</span></div>
-          <input type="range" id="widthSlider" min="50" max="100" value="100" />
+          <input type="range" id="widthSlider" min="50" max="100" step="5" value="100" />
         </div>
         <div class="side-group">
           <div class="side-label">投影片控制</div>
@@ -725,8 +725,13 @@ const INDEX_HTML: &str = r#"<!doctype html>
     }
 
     function setWidth(val) {
-      document.documentElement.style.setProperty("--img-width", `${val}%`);
-      widthValue.textContent = `${val}%`;
+      // Snap to the nearest 5% so widths are 100%, 95%, 90%, ...
+      const num = Number(val);
+      const clamped = Math.min(100, Math.max(50, Number.isFinite(num) ? num : 100));
+      const snapped = Math.round(clamped / 5) * 5;
+      widthSlider.value = snapped;
+      document.documentElement.style.setProperty("--img-width", `${snapped}%`);
+      widthValue.textContent = `${snapped}%`;
     }
 
     function currentPageStartIndex() {
