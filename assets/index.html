@@ -43,7 +43,7 @@
     .app-title { font-size: 20px; font-weight: 800; letter-spacing: 0.5px; }
     .side-group { display: flex; flex-direction: column; gap: 8px; }
     .side-label { font-size: 13px; color: var(--muted); font-weight: 600; }
-    input[type="text"], input[type="number"], input[type="range"] {
+    input[type="text"], input[type="number"], input[type="range"], select {
       width: 100%;
       padding: 8px 10px;
       border-radius: 8px;
@@ -192,8 +192,7 @@
             <button id="nextPage">下一頁</button>
           </div>
           <div class="row">
-            <input type="number" id="jumpPage" min="1" value="1" />
-            <button id="jumpBtn">跳到</button>
+            <select id="pageSelect"></select>
           </div>
           <div class="hint" id="pageInfo">第 0 / 0 頁</div>
         </div>
@@ -242,8 +241,7 @@
     const sidebarCaption = document.getElementById("sidebarCaption");
     const folderInput = document.getElementById("folderPath");
     const loadBtn = document.getElementById("loadBtn");
-    const jumpInput = document.getElementById("jumpPage");
-    const jumpBtn = document.getElementById("jumpBtn");
+    const pageSelect = document.getElementById("pageSelect");
     const widthSlider = document.getElementById("widthSlider");
     const widthValue = document.getElementById("widthValue");
     const PAGE_SIZE = 20;
@@ -253,7 +251,7 @@
     let lastSlideIndex = 0;
 
     loadBtn.addEventListener("click", selectDirectory);
-    jumpBtn.addEventListener("click", jumpToPage);
+    pageSelect.addEventListener("change", onSelectPage);
     widthSlider.addEventListener("input", () => setWidth(widthSlider.value));
     document.getElementById("prevPage").addEventListener("click", () => changePage(-1));
     document.getElementById("nextPage").addEventListener("click", () => changePage(1));
@@ -376,7 +374,8 @@
       pageInfoEl.textContent = `第 ${page} / ${totalPages} 頁`;
       document.getElementById("prevPage").disabled = page <= 1;
       document.getElementById("nextPage").disabled = page >= totalPages;
-      jumpInput.max = totalPages;
+      updatePageSelect(totalPages);
+      pageSelect.value = String(page);
     }
 
     function changePage(delta) {
@@ -386,9 +385,22 @@
       renderPage(next);
     }
 
-    function jumpToPage() {
+    function updatePageSelect(totalPages) {
+      if (!pageSelect) return;
+      const frag = document.createDocumentFragment();
+      for (let i = 1; i <= totalPages; i++) {
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = `第 ${i} 頁`;
+        frag.appendChild(opt);
+      }
+      pageSelect.innerHTML = "";
+      pageSelect.appendChild(frag);
+    }
+
+    function onSelectPage() {
       const totalPages = Math.max(1, Math.ceil(images.length / PAGE_SIZE));
-      const target = parseInt(jumpInput.value, 10);
+      const target = parseInt(pageSelect.value, 10);
       if (!Number.isFinite(target)) return;
       const page = Math.min(Math.max(target, 1), totalPages);
       renderPage(page);
