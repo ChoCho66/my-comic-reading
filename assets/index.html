@@ -250,13 +250,14 @@
     let images = [];
     let currentPage = 1;
     let slideIndex = 0;
+    let lastSlideIndex = 0;
 
     loadBtn.addEventListener("click", selectDirectory);
     jumpBtn.addEventListener("click", jumpToPage);
     widthSlider.addEventListener("input", () => setWidth(widthSlider.value));
     document.getElementById("prevPage").addEventListener("click", () => changePage(-1));
     document.getElementById("nextPage").addEventListener("click", () => changePage(1));
-    document.getElementById("startSlide").addEventListener("click", () => startSlideshow(currentPageStartIndex()));
+    document.getElementById("startSlide").addEventListener("click", () => startSlideshow());
     document.getElementById("showAll").addEventListener("click", () => renderPage(currentPage));
     document.getElementById("prevSlide").addEventListener("click", () => moveSlide(-1));
     document.getElementById("nextSlide").addEventListener("click", () => moveSlide(1));
@@ -395,7 +396,9 @@
 
     function startSlideshow(index) {
       if (!images.length) return;
-      slideIndex = index;
+      const fallback = currentPageStartIndex();
+      const target = typeof index === "number" ? index : lastSlideIndex || fallback;
+      slideIndex = (target + images.length) % images.length;
       updateSlide();
       modalEl.classList.add("active");
     }
@@ -407,6 +410,7 @@
     }
 
     function updateSlide() {
+      lastSlideIndex = slideIndex;
       const name = images[slideIndex];
       modalImage.src = `/images/${name}`;
       const captionText = `${slideIndex + 1} / ${images.length} - ${name}`;
