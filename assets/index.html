@@ -512,10 +512,18 @@
       return (currentPage - 1) * PAGE_SIZE;
     }
 
+    function pageForIndex(idx) {
+      return Math.floor(idx / PAGE_SIZE) + 1;
+    }
+
     async function startSlideshow(index) {
       if (!images.length) return;
-      const fallback = currentPageStartIndex();
-      const target = typeof index === "number" ? index : lastSlideIndex || fallback;
+      const pageStart = currentPageStartIndex();
+      let target = typeof index === "number" ? index : pageStart;
+      const pageEnd = pageStart + PAGE_SIZE;
+      if (typeof index !== "number" && lastSlideIndex >= pageStart && lastSlideIndex < pageEnd) {
+        target = lastSlideIndex;
+      }
       await rebuildSlides(target);
       modalEl.classList.add("active");
       updateSlide();
@@ -559,6 +567,9 @@
 
     function closeModal() {
       modalEl.classList.remove("active");
+      if (!images.length) return;
+      const page = pageForIndex(lastSlideIndex || 0);
+      renderPage(page);
     }
 
     function clickedOutsideRenderedImage(event, imgEl) {
