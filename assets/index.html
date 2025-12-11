@@ -158,22 +158,24 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 16px;
+      gap: 2px;
       width: 100%;
       height: 100%;
-      padding: 12px;
+      padding: 6px;
       background: #0f172a;
       flex: 1;
     }
     .modal-stage img {
-      flex: 1;
+      flex: 0 1 auto;
       max-width: 50%;
       height: 100%;
       object-fit: contain;
       background: #0f172a;
+      margin: 0 2px;
     }
     .modal-stage.single img {
       max-width: 100%;
+      margin: 0;
     }
     .modal-controls {
       position: absolute;
@@ -520,9 +522,20 @@
     }
 
     function moveSlide(delta) {
-      if (!slides.length) return;
-      slidePointer = (slidePointer + delta + slides.length) % slides.length;
-      updateSlide();
+      if (!images.length) return;
+
+      const performMove = () => {
+        if (!slides.length) return;
+        slidePointer = (slidePointer + delta + slides.length) % slides.length;
+        updateSlide();
+      };
+
+      if (!slides.length) {
+        rebuildSlides(lastSlideIndex || currentPageStartIndex()).then(performMove);
+        return;
+      }
+
+      performMove();
     }
 
     function updateSlide() {
