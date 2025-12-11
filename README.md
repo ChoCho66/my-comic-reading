@@ -34,3 +34,15 @@ If you want a shorter command, copy or rename the built binary to a directory on
 ```sh
 cp target/release/my-comic-reading ~/bin/comic-reader
 ```
+
+## Build a Double-Clickable macOS App
+- Requires macOS with Xcode command line tools installed.
+- Run the bundling script:
+```sh
+./scripts/package_macos.sh
+```
+The app bundle is created at `dist/Comic Reader.app`. Double-click it in Finder (or run `open "dist/Comic Reader.app"`) to launch the server and automatically open your browser.
+
+- Environment overrides:
+  - `PROFILE` (default `release`) to pick a cargo profile.
+  - `APP_VERSION` and `BUNDLE_ID` to control the Info.plist metadata.
