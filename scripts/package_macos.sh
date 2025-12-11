@@ -9,6 +9,7 @@ PROFILE="${PROFILE:-release}"
 BIN_NAME="my-comic-reading"
 APP_VERSION="${APP_VERSION:-0.1.0}"
 BUNDLE_ID="${BUNDLE_ID:-com.local.comicreader}"
+HIDE_DOCK="${HIDE_DOCK:-0}" # set to 1 to hide Dock icon (LSUIElement)
 
 TARGET_BIN="${ROOT}/target/${PROFILE}/${BIN_NAME}"
 DIST_DIR="${ROOT}/dist"
@@ -51,6 +52,16 @@ cat > "${CONTENTS_DIR}/Info.plist" <<EOF
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>
   <string>10.15</string>
+EOF
+
+if [[ "${HIDE_DOCK}" == "1" ]]; then
+  cat >> "${CONTENTS_DIR}/Info.plist" <<EOF
+  <key>LSUIElement</key>
+  <true/>
+EOF
+fi
+
+cat >> "${CONTENTS_DIR}/Info.plist" <<EOF
 </dict>
 </plist>
 EOF

@@ -19,6 +19,11 @@ target/release/my-comic-reading --dir /path/to/comics --port 4000 --browser defa
 - `--port` defaults to `4000`.
 - `--browser` chooses which browser to open (`default`, `firefox`, `chrome`, `safari`).
 
+Or just run
+```sh
+target/release/my-comic-reading
+```
+
 ## Install into PATH
 ```sh
 cargo install --path . --locked
@@ -46,3 +51,4 @@ The app bundle is created at `dist/Comic Reader.app`. Double-click it in Finder 
 - Environment overrides:
   - `PROFILE` (default `release`) to pick a cargo profile.
   - `APP_VERSION` and `BUNDLE_ID` to control the Info.plist metadata.
+  - `HIDE_DOCK=1` to hide the Dock icon (`LSUIElement`); default `0` shows the icon so you can quit from the Dock.

@@ -154,12 +154,26 @@
       flex-direction: column;
       position: relative;
     }
-    .modal img {
+    .modal-stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
       width: 100%;
+      height: 100%;
+      padding: 12px;
+      background: #0f172a;
+      flex: 1;
+    }
+    .modal-stage img {
+      flex: 1;
+      max-width: 50%;
       height: 100%;
       object-fit: contain;
       background: #0f172a;
-      flex: 1;
+    }
+    .modal-stage.single img {
+      max-width: 100%;
     }
     .modal-controls {
       position: absolute;
@@ -206,18 +220,27 @@
           </div>
           <div class="hint">支援在頁面任意位置拖曳整個資料夾，或點「選擇資料夾」。</div>
         </div>
-        <div class="side-group">
-          <div class="side-label">瀏覽模式</div>
-          <div class="controls-grid">
-            <button class="primary" id="startSlide">投影片</button>
-            <button id="showAll">全部瀏覽</button>
-          </div>
+      <div class="side-group">
+        <div class="side-label">瀏覽模式</div>
+        <div class="controls-grid">
+          <button class="primary" id="startSlide">投影片</button>
+          <button id="showAll">全部瀏覽</button>
         </div>
-        <div class="side-group">
-          <div class="side-label">分頁控制</div>
-          <div class="controls-grid">
-            <button id="prevPage">上一頁</button>
-            <button id="nextPage">下一頁</button>
+      </div>
+      <div class="side-group">
+        <div class="side-label">投影片張數</div>
+        <select id="slideMode">
+          <option value="auto" selected>自動 (依圖片寬度)</option>
+          <option value="single">固定 1 張</option>
+          <option value="double">固定 2 張</option>
+        </select>
+        <div class="hint">預設自動：橫向頁單張；直向頁併成雙頁。</div>
+      </div>
+      <div class="side-group">
+        <div class="side-label">分頁控制</div>
+        <div class="controls-grid">
+          <button id="prevPage">上一頁</button>
+          <button id="nextPage">下一頁</button>
           </div>
           <div class="row">
             <select id="pageSelect"></select>
@@ -254,7 +277,7 @@
         <button id="closeModalModal">關閉</button>
         <div class="modal-caption" id="modalCaption">尚未開始</div>
       </div>
-      <img id="modalImage" alt="Slide" />
+      <div class="modal-stage" id="modalStage"></div>
     </div>
   </div>
 
@@ -264,7 +287,7 @@
     const statusEl = document.getElementById("status");
     const emptyEl = document.getElementById("empty");
     const modalEl = document.getElementById("modal");
-    const modalImage = document.getElementById("modalImage");
+    const modalStage = document.getElementById("modalStage");
     const modalCaption = document.getElementById("modalCaption");
     const modalControls = document.querySelector(".modal-controls");
     const sidebarCaption = document.getElementById("sidebarCaption");
@@ -275,12 +298,17 @@
     const pageSelect = document.getElementById("pageSelect");
     const widthSlider = document.getElementById("widthSlider");
     const widthValue = document.getElementById("widthValue");
+    const slideModeSelect = document.getElementById("slideMode");
     const PAGE_SIZE = 20;
     let images = [];
     const localObjectUrls = [];
     let currentPage = 1;
-    let slideIndex = 0;
     let lastSlideIndex = 0;
+    let slideMode = "auto";
+    let slides = []; // [{ start: number, count: number }]
+    let slidePointer = 0; // index inside slides
+    const imageMeta = [];
+    const metaPromises = [];
 
     function isFileDrag(event) {
       const dt = event && event.dataTransfer;
@@ -304,6 +332,12 @@
     folderDropZone.addEventListener("drop", (e) => handleDropEvent(e, "拖曳資料夾"));
     pageSelect.addEventListener("change", onSelectPage);
     widthSlider.addEventListener("input", () => setWidth(widthSlider.value));
+    slideModeSelect.addEventListener("change", () => {
+      slideMode = slideModeSelect.value;
+      rebuildSlides(lastSlideIndex || currentPageStartIndex()).then(() => {
+        if (modalEl.classList.contains("active")) updateSlide();
+      });
+    });
     document.getElementById("prevPage").addEventListener("click", () => changePage(-1));
     document.getElementById("nextPage").addEventListener("click", () => changePage(1));
     document.getElementById("startSlide").addEventListener("click", () => startSlideshow());
@@ -315,13 +349,13 @@
     document.getElementById("nextSlideModal").addEventListener("click", () => moveSlide(1));
     document.getElementById("closeModalModal").addEventListener("click", closeModal);
     modalEl.addEventListener("click", (e) => {
-      // Close when clicking anything except the visible image area (controls stay active)
       if (modalControls && modalControls.contains(e.target)) return;
-      if (e.target !== modalImage) {
+      const clickedImg = e.target.closest("#modalStage img");
+      if (!clickedImg) {
         closeModal();
         return;
       }
-      if (clickedOutsideRenderedImage(e, modalImage)) {
+      if (clickedOutsideRenderedStage(e, modalStage)) {
         closeModal();
       }
     });
@@ -383,6 +417,7 @@
           name,
           src: `/images/${encodeURIComponent(name)}`,
         }));
+        resetSlides();
         if (!images.length) {
           statusEl.textContent = "請先選擇資料夾";
           emptyEl.style.display = "block";
@@ -475,26 +510,36 @@
       return (currentPage - 1) * PAGE_SIZE;
     }
 
-    function startSlideshow(index) {
+    async function startSlideshow(index) {
       if (!images.length) return;
       const fallback = currentPageStartIndex();
       const target = typeof index === "number" ? index : lastSlideIndex || fallback;
-      slideIndex = (target + images.length) % images.length;
-      updateSlide();
+      await rebuildSlides(target);
       modalEl.classList.add("active");
+      updateSlide();
     }
 
     function moveSlide(delta) {
-      if (!images.length) return;
-      slideIndex = (slideIndex + delta + images.length) % images.length;
+      if (!slides.length) return;
+      slidePointer = (slidePointer + delta + slides.length) % slides.length;
       updateSlide();
     }
 
     function updateSlide() {
-      lastSlideIndex = slideIndex;
-      const item = images[slideIndex];
-      modalImage.src = item.src;
-      const captionText = `${slideIndex + 1} / ${images.length} - ${item.name}`;
+      if (!slides.length) return;
+      const slide = slides[slidePointer] || { start: 0, count: 1 };
+      const indices = [];
+      for (let i = 0; i < slide.count && slide.start + i < images.length; i++) {
+        indices.push(slide.start + i);
+      }
+      lastSlideIndex = slide.start;
+      renderSlideImages(indices);
+      const first = indices[0];
+      const last = indices[indices.length - 1];
+      const captionText =
+        indices.length === 2
+          ? `${first + 1}-${last + 1} / ${images.length} - ${images[first].name} & ${images[last].name}`
+          : `${first + 1} / ${images.length} - ${images[first].name}`;
       modalCaption.textContent = captionText;
       sidebarCaption.textContent = captionText;
     }
@@ -524,8 +569,102 @@
       return !(withinX && withinY);
     }
 
+    function clickedOutsideRenderedStage(event, stageEl) {
+      if (!stageEl) return true;
+      const imgs = Array.from(stageEl.querySelectorAll("img"));
+      if (!imgs.length) return true;
+      return imgs.every((img) => clickedOutsideRenderedImage(event, img));
+    }
+
     function cleanupLocalUrls() {
       localObjectUrls.splice(0).forEach((url) => URL.revokeObjectURL(url));
+    }
+
+    function resetSlides() {
+      slides = [];
+      slidePointer = 0;
+      lastSlideIndex = 0;
+      imageMeta.length = 0;
+      metaPromises.length = 0;
+    }
+
+    function ensureMeta(index) {
+      if (imageMeta[index]) return Promise.resolve(imageMeta[index]);
+      if (metaPromises[index]) return metaPromises[index];
+
+      const src = images[index]?.src;
+      if (!src) return Promise.resolve({ width: 0, height: 0 });
+
+      const promise = new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const meta = { width: img.naturalWidth || 0, height: img.naturalHeight || 0 };
+          imageMeta[index] = meta;
+          resolve(meta);
+        };
+        img.onerror = () => {
+          const meta = { width: 0, height: 0 };
+          imageMeta[index] = meta;
+          resolve(meta);
+        };
+        img.src = src;
+      });
+
+      metaPromises[index] = promise;
+      return promise;
+    }
+
+    function shouldAutoPair(meta) {
+      if (!meta) return false;
+      const { width, height } = meta;
+      if (!width || !height) return false;
+      const aspect = width / height;
+      // Portrait/narrow pages become double spread, landscape stays single.
+      return aspect <= 0.8;
+    }
+
+    async function rebuildSlides(targetIndex = 0) {
+      slides = [];
+      slidePointer = 0;
+      if (!images.length) return;
+
+      let i = 0;
+      while (i < images.length) {
+        let count = 1;
+        if (slideMode === "double") {
+          count = Math.min(2, images.length - i);
+        } else if (slideMode === "single") {
+          count = 1;
+        } else {
+          const meta = await ensureMeta(i);
+          const autoPair = shouldAutoPair(meta);
+          count = autoPair && i + 1 < images.length ? 2 : 1;
+        }
+        slides.push({ start: i, count });
+        i += count;
+      }
+
+      slidePointer = findSlidePointer(targetIndex);
+    }
+
+    function findSlidePointer(targetIndex) {
+      const found = slides.findIndex(
+        (slide) => targetIndex >= slide.start && targetIndex < slide.start + slide.count
+      );
+      return found >= 0 ? found : 0;
+    }
+
+    function renderSlideImages(indices) {
+      modalStage.innerHTML = "";
+      modalStage.classList.toggle("single", indices.length === 1);
+      indices.forEach((idx) => {
+        const item = images[idx];
+        const img = document.createElement("img");
+        img.className = "modal-img";
+        img.src = item.src;
+        img.alt = item.name;
+        modalStage.appendChild(img);
+      });
     }
 
     function deriveFolderName(files) {
@@ -553,6 +692,7 @@
       }
 
       cleanupLocalUrls();
+      resetSlides();
       const mapped = imageFiles.map((file) => {
         const url = URL.createObjectURL(file);
         localObjectUrls.push(url);
