@@ -707,6 +707,7 @@
     }
 
     function handleLocalFiles(fileList, sourceLabel) {
+      const resumeSlide = modalEl.classList.contains("active");
       const files = Array.from(fileList || []);
       const imageFiles = files.filter((file) => isImageFile(file.name));
       if (!imageFiles.length) {
@@ -732,6 +733,9 @@
       statusEl.textContent = `${sourceLabel || "本地資料夾"}：共 ${images.length} 張`;
       emptyEl.style.display = images.length ? "none" : "block";
       renderPage(1);
+      if (resumeSlide) {
+        startSlideshow(0);
+      }
     }
 
     async function handleDropEvent(event, sourceLabel = "拖曳資料夾") {
