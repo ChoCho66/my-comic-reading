@@ -39,6 +39,9 @@
       display: flex;
       flex-direction: column;
       gap: 14px;
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+      overscroll-behavior: contain;
     }
     .app-title { font-size: 20px; font-weight: 800; letter-spacing: 0.5px; }
     .side-group { display: flex; flex-direction: column; gap: 8px; }
@@ -230,6 +233,14 @@
         </div>
       </div>
       <div class="side-group">
+        <div class="side-label">漫畫切換</div>
+        <div class="controls-grid">
+          <button id="prevBook">上一本</button>
+          <button id="nextBook">下一本</button>
+        </div>
+        <div class="hint" id="bookInfo">共 0 本</div>
+      </div>
+      <div class="side-group">
         <div class="side-label">投影片張數</div>
         <select id="slideMode">
           <option value="auto" selected>自動 (依圖片寬度)</option>
@@ -272,15 +283,17 @@
   </main>
 
   <div class="modal" id="modal">
-    <div class="modal-content">
-      <div class="modal-controls">
-        <button id="prevSlideModal">上一張</button>
-        <button id="nextSlideModal">下一張</button>
-        <button id="closeModalModal">關閉</button>
-        <div class="modal-caption" id="modalCaption">尚未開始</div>
+      <div class="modal-content">
+        <div class="modal-controls">
+          <button id="prevSlideModal">上一張</button>
+          <button id="nextSlideModal">下一張</button>
+          <button id="prevBookModal">上一本</button>
+          <button id="nextBookModal">下一本</button>
+          <button id="closeModalModal">關閉</button>
+          <div class="modal-caption" id="modalCaption">尚未開始</div>
+        </div>
+        <div class="modal-stage" id="modalStage"></div>
       </div>
-      <div class="modal-stage" id="modalStage"></div>
-    </div>
   </div>
 
   <script>
@@ -301,6 +314,11 @@
     const widthSlider = document.getElementById("widthSlider");
     const widthValue = document.getElementById("widthValue");
     const slideModeSelect = document.getElementById("slideMode");
+    const bookInfoEl = document.getElementById("bookInfo");
+    const prevBookBtn = document.getElementById("prevBook");
+    const nextBookBtn = document.getElementById("nextBook");
+    const prevBookModalBtn = document.getElementById("prevBookModal");
+    const nextBookModalBtn = document.getElementById("nextBookModal");
     const PAGE_SIZE = 20;
     let images = [];
     const localObjectUrls = [];
@@ -311,6 +329,8 @@
     let slidePointer = 0; // index inside slides
     const imageMeta = [];
     const metaPromises = [];
+    let books = []; // [{ name: string, items: { name, src }[] }]
+    let currentBookIndex = 0;
 
     function isFileDrag(event) {
       const dt = event && event.dataTransfer;
@@ -368,6 +388,18 @@
       if (modalEl.classList.contains("active")) {
         if (e.key === "ArrowRight") moveSlide(1);
         if (e.key === "ArrowLeft") moveSlide(-1);
+        if (e.key === " " || e.key === "Spacebar") {
+          moveSlide(1);
+          e.preventDefault();
+        }
+        if (e.key === "n" || e.key === "N") {
+          moveBook(1);
+          e.preventDefault();
+        }
+        if (e.key === "b" || e.key === "B") {
+          moveBook(-1);
+          e.preventDefault();
+        }
         if (e.key === "Escape") closeModal();
         if (e.key === "a" || e.key === "A") {
           closeModal();
@@ -395,6 +427,24 @@
         changePage(-1);
         e.preventDefault();
       }
+      if (e.key === "n" || e.key === "N") {
+        moveBook(1);
+        e.preventDefault();
+      }
+      if (e.key === "b" || e.key === "B") {
+        moveBook(-1);
+        e.preventDefault();
+      }
+    });
+    prevBookBtn.addEventListener("click", () => moveBook(-1));
+    nextBookBtn.addEventListener("click", () => moveBook(1));
+    prevBookModalBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      moveBook(-1);
+    });
+    nextBookModalBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      moveBook(1);
     });
 
     window.addEventListener("dragover", (e) => {
@@ -419,15 +469,19 @@
           name,
           src: `/images/${encodeURIComponent(name)}`,
         }));
+        books = [{ name: "伺服器資料夾", items: images }];
+        currentBookIndex = 0;
         resetSlides();
         if (!images.length) {
           statusEl.textContent = "請先選擇資料夾";
           emptyEl.style.display = "block";
+          updateBookControls();
           return;
         }
         emptyEl.style.display = "none";
         statusEl.textContent = `共 ${images.length} 張，分頁顯示，每頁 ${PAGE_SIZE} 張`;
         folderLabel.textContent = "使用伺服器端資料夾";
+        updateBookControls();
         renderPage(1);
       } catch (err) {
         statusEl.textContent = "Failed to load images.";
@@ -561,8 +615,10 @@
         indices.length === 2
           ? `${first + 1}-${last + 1} / ${images.length} - ${images[first].name} & ${images[last].name}`
           : `${first + 1} / ${images.length} - ${images[first].name}`;
-      modalCaption.textContent = captionText;
-      sidebarCaption.textContent = captionText;
+      const bookLabel = books.length ? `第 ${currentBookIndex + 1}/${books.length} 本 · ` : "";
+      const fullCaption = `${bookLabel}${captionText}`;
+      modalCaption.textContent = fullCaption;
+      sidebarCaption.textContent = fullCaption;
     }
 
     function closeModal() {
@@ -698,6 +754,78 @@
       return parts.length > 1 ? parts[0] : relPath;
     }
 
+    function bookNameFromFile(file, fallbackFolder) {
+      const relPath = file.webkitRelativePath || file.name;
+      const parts = relPath.split("/");
+      return parts.length > 1 ? parts[0] : fallbackFolder || relPath || "未命名";
+    }
+
+    function buildBooks(fileList, fallbackFolder) {
+      const groups = new Map();
+      Array.from(fileList).forEach((file) => {
+        const book = bookNameFromFile(file, fallbackFolder);
+        if (!groups.has(book)) groups.set(book, []);
+        groups.get(book).push(file);
+      });
+
+      return Array.from(groups.entries())
+        .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: "base" }))
+        .map(([name, files]) => ({ name, files }));
+    }
+
+    function mapFilesToImages(fileArray) {
+      return fileArray.map((file) => {
+        const url = URL.createObjectURL(file);
+        localObjectUrls.push(url);
+        return {
+          name: file.webkitRelativePath || file.name,
+          src: url,
+        };
+      }).sort(sortByName);
+    }
+
+    function setActiveBook(index, sourceLabel, defaultFolderName, resumeSlide) {
+      if (!books.length) return;
+      const total = books.length;
+      currentBookIndex = ((index % total) + total) % total;
+      const book = books[currentBookIndex];
+
+      resetSlides();
+      images = book.items || [];
+      const activeName = book.name || defaultFolderName || "已選擇資料夾";
+      folderLabel.textContent = activeName;
+      statusEl.textContent = `${sourceLabel || "本地資料夾"}：共 ${images.length} 張（${currentBookIndex + 1}/${total} 本）`;
+      emptyEl.style.display = images.length ? "none" : "block";
+      renderPage(1);
+      updateBookControls();
+
+      if (resumeSlide && modalEl.classList.contains("active")) {
+        startSlideshow(0);
+      }
+    }
+
+    function updateBookControls() {
+      const total = books.length || 0;
+      const current = total ? currentBookIndex + 1 : 0;
+      bookInfoEl.textContent = total ? `第 ${current} / ${total} 本` : "共 0 本";
+      const disabled = total <= 1;
+      prevBookBtn.disabled = disabled;
+      nextBookBtn.disabled = disabled;
+      if (prevBookModalBtn) prevBookModalBtn.disabled = disabled;
+      if (nextBookModalBtn) nextBookModalBtn.disabled = disabled;
+    }
+
+    function moveBook(delta) {
+      if (!books.length || books.length <= 1) return;
+      const resumeSlide = modalEl.classList.contains("active");
+      setActiveBook(
+        currentBookIndex + delta,
+        "本地資料夾",
+        books[currentBookIndex]?.name,
+        resumeSlide
+      );
+    }
+
     function isImageFile(name) {
       return /\.(png|jpe?g)$/i.test(name);
     }
@@ -713,29 +841,24 @@
       if (!imageFiles.length) {
         statusEl.textContent = "資料夾裡沒有可用的圖片 (.png/.jpg/.jpeg)";
         emptyEl.style.display = "block";
+        books = [];
+        currentBookIndex = 0;
+        updateBookControls();
         return;
       }
 
       cleanupLocalUrls();
-      resetSlides();
-      const mapped = imageFiles.map((file) => {
-        const url = URL.createObjectURL(file);
-        localObjectUrls.push(url);
-        return {
-          name: file.webkitRelativePath || file.name,
-          src: url,
-        };
-      });
-
-      images = mapped.sort(sortByName);
       const folderName = deriveFolderName(imageFiles);
-      folderLabel.textContent = folderName || "已選擇資料夾";
-      statusEl.textContent = `${sourceLabel || "本地資料夾"}：共 ${images.length} 張`;
-      emptyEl.style.display = images.length ? "none" : "block";
-      renderPage(1);
-      if (resumeSlide) {
-        startSlideshow(0);
-      }
+      const bookGroups = buildBooks(imageFiles, folderName);
+      books = bookGroups.map(({ name, files: groupFiles }) => ({
+        name,
+        items: mapFilesToImages(groupFiles),
+      }));
+      currentBookIndex = Math.max(
+        0,
+        books.findIndex((book) => book.name === folderName)
+      );
+      setActiveBook(currentBookIndex, sourceLabel, folderName, resumeSlide);
     }
 
     async function handleDropEvent(event, sourceLabel = "拖曳資料夾") {
