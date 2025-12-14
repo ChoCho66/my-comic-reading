@@ -68,6 +68,18 @@
       letter-spacing: 0.2px;
       width: 100%;
     }
+    .with-hotkey { position: relative; padding-right: 32px; }
+    .hotkey {
+      position: absolute;
+      right: 8px;
+      bottom: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+    .select-wrap { position: relative; }
+    .select-wrap .hotkey { right: 10px; bottom: 8px; }
+    .select-wrap select { padding-right: 36px; }
     button:hover { border-color: rgba(249, 115, 22, 0.6); transform: translateY(-1px); }
     button.primary { background: var(--accent); color: #111827; border: none; }
     .controls-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -228,32 +240,35 @@
       <div class="side-group">
         <div class="side-label">瀏覽模式</div>
         <div class="controls-grid">
-          <button class="primary" id="startSlide">投影片</button>
-          <button id="showAll">全部瀏覽</button>
+          <button class="primary with-hotkey" id="startSlide">投影片<span class="hotkey">S</span></button>
+          <button class="with-hotkey" id="showAll">全部瀏覽<span class="hotkey">A</span></button>
         </div>
       </div>
       <div class="side-group">
         <div class="side-label">漫畫切換</div>
         <div class="controls-grid">
-          <button id="prevBook">上一本</button>
-          <button id="nextBook">下一本</button>
+          <button class="with-hotkey" id="prevBook">上一本<span class="hotkey">B</span></button>
+          <button class="with-hotkey" id="nextBook">下一本<span class="hotkey">N</span></button>
         </div>
         <div class="hint" id="bookInfo">共 0 本</div>
       </div>
       <div class="side-group">
         <div class="side-label">投影片張數</div>
-        <select id="slideMode">
-          <option value="auto" selected>自動 (依圖片寬度)</option>
-          <option value="single">固定 1 張</option>
-          <option value="double">固定 2 張</option>
-        </select>
+        <div class="select-wrap">
+          <select id="slideMode">
+            <option value="auto" selected>自動 (依圖片寬度)</option>
+            <option value="single">固定 1 張</option>
+            <option value="double">固定 2 張</option>
+          </select>
+          <span class="hotkey">3/1/2</span>
+        </div>
         <div class="hint">預設自動：橫向頁單張；直向頁併成雙頁。</div>
       </div>
       <div class="side-group">
         <div class="side-label">分頁控制</div>
         <div class="controls-grid">
-          <button id="prevPage">上一頁</button>
-          <button id="nextPage">下一頁</button>
+          <button class="with-hotkey" id="prevPage">上一頁<span class="hotkey">←</span></button>
+          <button class="with-hotkey" id="nextPage">下一頁<span class="hotkey">→</span></button>
           </div>
           <div class="row">
             <select id="pageSelect"></select>
@@ -267,10 +282,10 @@
         <div class="side-group">
           <div class="side-label">投影片控制</div>
           <div class="controls-grid">
-            <button id="prevSlide">上一張</button>
-            <button id="nextSlide">下一張</button>
+          <button class="with-hotkey" id="prevSlide">上一張<span class="hotkey">←</span></button>
+          <button class="with-hotkey" id="nextSlide">下一張<span class="hotkey">→/Space</span></button>
           </div>
-          <button id="closeModal">關閉投影片</button>
+          <button class="with-hotkey" id="closeModal">關閉投影片<span class="hotkey">Esc</span></button>
           <div class="hint" id="sidebarCaption">尚未開始</div>
         </div>
       </aside>
@@ -285,17 +300,20 @@
   <div class="modal" id="modal">
       <div class="modal-content">
         <div class="modal-controls">
-          <button id="prevSlideModal">上一張</button>
-          <button id="nextSlideModal">下一張</button>
-          <button id="prevBookModal">上一本</button>
-          <button id="nextBookModal">下一本</button>
-          <button id="closeModalModal">關閉</button>
+          <button class="with-hotkey" id="prevSlideModal">上一張<span class="hotkey">←</span></button>
+          <button class="with-hotkey" id="nextSlideModal">下一張<span class="hotkey">→/Space</span></button>
+          <button class="with-hotkey" id="prevBookModal">上一本<span class="hotkey">B</span></button>
+          <button class="with-hotkey" id="nextBookModal">下一本<span class="hotkey">N</span></button>
+          <button class="with-hotkey" id="closeModalModal">關閉<span class="hotkey">Esc</span></button>
           <label class="side-label" style="margin-top:4px;">投影片張數</label>
-          <select id="modalSlideMode">
-            <option value="auto" selected>自動 (依圖片寬度)</option>
-            <option value="single">固定 1 張</option>
-            <option value="double">固定 2 張</option>
-          </select>
+          <div class="select-wrap">
+            <select id="modalSlideMode">
+              <option value="auto" selected>自動 (依圖片寬度)</option>
+              <option value="single">固定 1 張</option>
+              <option value="double">固定 2 張</option>
+            </select>
+            <span class="hotkey">`/1/2</span>
+          </div>
           <div class="modal-caption" id="modalCaption">尚未開始</div>
         </div>
         <div class="modal-stage" id="modalStage"></div>
