@@ -290,6 +290,12 @@
           <button id="prevBookModal">上一本</button>
           <button id="nextBookModal">下一本</button>
           <button id="closeModalModal">關閉</button>
+          <label class="side-label" style="margin-top:4px;">投影片張數</label>
+          <select id="modalSlideMode">
+            <option value="auto" selected>自動 (依圖片寬度)</option>
+            <option value="single">固定 1 張</option>
+            <option value="double">固定 2 張</option>
+          </select>
           <div class="modal-caption" id="modalCaption">尚未開始</div>
         </div>
         <div class="modal-stage" id="modalStage"></div>
@@ -314,6 +320,7 @@
     const widthSlider = document.getElementById("widthSlider");
     const widthValue = document.getElementById("widthValue");
     const slideModeSelect = document.getElementById("slideMode");
+    const modalSlideModeSelect = document.getElementById("modalSlideMode");
     const bookInfoEl = document.getElementById("bookInfo");
     const prevBookBtn = document.getElementById("prevBook");
     const nextBookBtn = document.getElementById("nextBook");
@@ -354,12 +361,8 @@
     folderDropZone.addEventListener("drop", (e) => handleDropEvent(e, "拖曳資料夾"));
     pageSelect.addEventListener("change", onSelectPage);
     widthSlider.addEventListener("input", () => setWidth(widthSlider.value));
-    slideModeSelect.addEventListener("change", () => {
-      slideMode = slideModeSelect.value;
-      rebuildSlides(lastSlideIndex || currentPageStartIndex()).then(() => {
-        if (modalEl.classList.contains("active")) updateSlide();
-      });
-    });
+    slideModeSelect.addEventListener("change", () => applySlideMode(slideModeSelect.value));
+    modalSlideModeSelect.addEventListener("change", () => applySlideMode(modalSlideModeSelect.value));
     document.getElementById("prevPage").addEventListener("click", () => changePage(-1));
     document.getElementById("nextPage").addEventListener("click", () => changePage(1));
     document.getElementById("startSlide").addEventListener("click", () => startSlideshow());
@@ -400,6 +403,7 @@
           moveBook(-1);
           e.preventDefault();
         }
+        if (handleSlideModeHotkey(e)) return;
         if (e.key === "Escape") closeModal();
         if (e.key === "a" || e.key === "A") {
           closeModal();
@@ -409,6 +413,7 @@
       }
 
       if (isFormField) return;
+      if (handleSlideModeHotkey(e)) return;
       if (e.key === "s" || e.key === "S") {
         startSlideshow();
         e.preventDefault();
@@ -560,6 +565,40 @@
       widthSlider.value = snapped;
       document.documentElement.style.setProperty("--img-width", `${snapped}%`);
       widthValue.textContent = `${snapped}%`;
+    }
+
+    function handleSlideModeHotkey(event) {
+      const key = event.key;
+      if (key === "1") {
+        applySlideMode("single");
+        event.preventDefault();
+        return true;
+      }
+      if (key === "2") {
+        applySlideMode("double");
+        event.preventDefault();
+        return true;
+      }
+      if (key === "3") {
+        applySlideMode("auto");
+        event.preventDefault();
+        return true;
+      }
+      return false;
+    }
+
+    function syncSlideModeSelectors() {
+      if (slideModeSelect) slideModeSelect.value = slideMode;
+      if (modalSlideModeSelect) modalSlideModeSelect.value = slideMode;
+    }
+
+    function applySlideMode(mode, targetIndex) {
+      slideMode = mode || "auto";
+      syncSlideModeSelectors();
+      const startIndex = typeof targetIndex === "number" ? targetIndex : (lastSlideIndex || currentPageStartIndex());
+      return rebuildSlides(startIndex).then(() => {
+        if (modalEl.classList.contains("active")) updateSlide();
+      });
     }
 
     function currentPageStartIndex() {
@@ -932,6 +971,7 @@
     }
 
     loadImagesFromServer();
+    syncSlideModeSelectors();
     setWidth(widthSlider.value);
   </script>
 </body>
