@@ -524,16 +524,12 @@
         const data = await res.json();
         const names = data.images || [];
         cleanupLocalUrls();
-        const serverItems = names.map((name) => ({
-          name,
-          src: `/images/${encodeURIComponent(name)}`,
-        }));
-        books = [{ name: "伺服器資料夾", items: serverItems }];
+        books = [{ name: "伺服器資料夾", serverNames: names }];
         currentBookIndex = 0;
         bookSourceLabel = "伺服器資料夾";
         lastDefaultFolderName = "伺服器資料夾";
         setActiveBook(0, bookSourceLabel, lastDefaultFolderName, false);
-        if (!serverItems.length) {
+        if (!names.length) {
           statusEl.textContent = "請先選擇資料夾";
           emptyEl.style.display = "block";
         }
@@ -699,8 +695,13 @@
         const hasPrev = books.length > 1 && currentBookIndex > 0;
         if (hasPrev) {
           const prevBookIdx = currentBookIndex - 1;
-          const prevItems = books[prevBookIdx]?.items || [];
-          const lastIdx = Math.max(0, prevItems.length - 1);
+          const prevBook = books[prevBookIdx];
+          const prevCount =
+            (prevBook?.files && prevBook.files.length) ||
+            (prevBook?.serverNames && prevBook.serverNames.length) ||
+            (prevBook?.items && prevBook.items.length) ||
+            0;
+          const lastIdx = Math.max(0, prevCount - 1);
           setActiveBook(
             prevBookIdx,
             bookSourceLabel,
@@ -910,13 +911,15 @@
       if (sourceLabel) bookSourceLabel = sourceLabel;
       if (defaultFolderName) lastDefaultFolderName = defaultFolderName;
 
+      cleanupLocalUrls();
       resetSlides();
-      images = book.items || [];
+      images = loadBookItems(book);
       const activeName = book.name || lastDefaultFolderName || "已選擇資料夾";
       folderLabel.textContent = activeName;
       statusEl.textContent = `${bookSourceLabel || "本地資料夾"}：共 ${images.length} 張（${currentBookIndex + 1}/${total} 本）`;
       emptyEl.style.display = images.length ? "none" : "block";
-      const initialIndex = typeof resumeSlideIndex === "number" ? resumeSlideIndex : 0;
+      const initialIndexRaw = typeof resumeSlideIndex === "number" ? resumeSlideIndex : 0;
+      const initialIndex = Math.min(Math.max(0, initialIndexRaw), Math.max(0, images.length - 1));
       const initialPage = Math.max(1, Math.floor(initialIndex / PAGE_SIZE) + 1);
       renderPage(initialPage);
       updateBookControls();
@@ -940,11 +943,12 @@
 
     function moveBook(delta) {
       if (!books.length || books.length <= 1) return;
+      const targetIndex = currentBookIndex + delta;
       const resumeSlide = modalEl.classList.contains("active");
       setActiveBook(
-        currentBookIndex + delta,
+        targetIndex,
         bookSourceLabel,
-        books[currentBookIndex]?.name,
+        books[targetIndex]?.name,
         resumeSlide,
         0
       );
@@ -997,6 +1001,21 @@
       return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
     }
 
+    function loadBookItems(book) {
+      if (!book) return [];
+      if (book.files && book.files.length) {
+        return mapFilesToImages(book.files);
+      }
+      if (book.serverNames && book.serverNames.length) {
+        return book.serverNames.map((name) => ({
+          name,
+          src: `/images/${encodeURIComponent(name)}`,
+        }));
+      }
+      if (book.items) return book.items;
+      return [];
+    }
+
     function handleLocalFiles(fileList, sourceLabel) {
       const resumeSlide = modalEl.classList.contains("active");
       const files = Array.from(fileList || []);
@@ -1017,7 +1036,7 @@
       const bookGroups = buildBooks(imageFiles, folderName);
       books = bookGroups.map(({ name, files: groupFiles }) => ({
         name,
-        items: mapFilesToImages(groupFiles),
+        files: groupFiles,
       }));
       currentBookIndex = Math.max(
         0,
