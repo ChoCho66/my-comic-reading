@@ -957,6 +957,10 @@
     function toggleCollapse(el) {
       if (!el) return;
       el.classList.toggle("open");
+      if (el.classList.contains("open")) {
+        const panel = el.querySelector(".collapse-panel");
+        scrollActiveBookIntoView(panel);
+      }
     }
 
     function renderBookList() {
@@ -990,6 +994,7 @@
           frag.appendChild(btn);
         });
         root.appendChild(frag);
+        scrollActiveBookIntoView(root);
       });
     }
 
@@ -1014,6 +1019,14 @@
       }
       if (book.items) return book.items;
       return [];
+    }
+
+    function scrollActiveBookIntoView(root) {
+      if (!root) return;
+      const activeBtn = root.querySelector(".book-btn.active");
+      if (activeBtn && typeof activeBtn.scrollIntoView === "function") {
+        activeBtn.scrollIntoView({ block: "nearest" });
+      }
     }
 
     function handleLocalFiles(fileList, sourceLabel) {
