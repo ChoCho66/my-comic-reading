@@ -266,7 +266,7 @@
           <button class="with-hotkey" id="nextBook">下一本<span class="hotkey">N</span></button>
         </div>
         <div class="hint" id="bookInfo">共 0 本</div>
-        <div class="collapse" id="bookCollapse">
+        <div class="collapse open" id="bookCollapse">
           <button class="with-hotkey" id="toggleBookList">選擇漫畫</button>
           <div class="collapse-panel" id="bookList"></div>
         </div>
@@ -278,8 +278,9 @@
             <option value="auto" selected>自動 (依圖片寬度)</option>
             <option value="single">固定 1 張</option>
             <option value="double">固定 2 張</option>
+            <option value="triple">固定 3 張</option>
           </select>
-          <span class="hotkey">3/1/2</span>
+          <span class="hotkey">4/1/2/3</span>
         </div>
         <div class="hint">預設自動：橫向頁單張；直向頁併成雙頁。</div>
       </div>
@@ -324,7 +325,7 @@
           <button class="with-hotkey" id="prevBookModal">上一本<span class="hotkey">B</span></button>
           <button class="with-hotkey" id="nextBookModal">下一本<span class="hotkey">N</span></button>
           <button class="with-hotkey" id="closeModalModal">關閉<span class="hotkey">Esc</span></button>
-          <div class="collapse" id="bookCollapseModal">
+          <div class="collapse open" id="bookCollapseModal">
             <button class="with-hotkey" id="toggleBookListModal">選擇漫畫</button>
             <div class="collapse-panel" id="bookListModal"></div>
           </div>
@@ -334,8 +335,9 @@
               <option value="auto" selected>自動 (依圖片寬度)</option>
               <option value="single">固定 1 張</option>
               <option value="double">固定 2 張</option>
+              <option value="triple">固定 3 張</option>
             </select>
-            <span class="hotkey">`/1/2</span>
+            <span class="hotkey">4/1/2/3</span>
           </div>
           <div class="modal-caption" id="modalCaption">尚未開始</div>
         </div>
@@ -635,6 +637,11 @@
         return true;
       }
       if (key === "3") {
+        applySlideMode("triple");
+        event.preventDefault();
+        return true;
+      }
+      if (key === "4") {
         applySlideMode("auto");
         event.preventDefault();
         return true;
@@ -745,7 +752,7 @@
         indices.push(slide.start + i);
       }
       lastSlideIndex = slide.start;
-      const displayOrder = indices.length === 2 ? [...indices].reverse() : indices;
+      const displayOrder = indices.length > 1 ? [...indices].reverse() : indices;
       renderSlideImages(displayOrder);
       const first = indices[0];
       const last = indices[indices.length - 1];
@@ -851,6 +858,8 @@
         let count = 1;
         if (slideMode === "double") {
           count = Math.min(2, images.length - i);
+        } else if (slideMode === "triple") {
+          count = Math.min(3, images.length - i);
         } else if (slideMode === "single") {
           count = 1;
         } else {
