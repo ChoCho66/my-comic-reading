@@ -83,6 +83,21 @@
     button:hover { border-color: rgba(249, 115, 22, 0.6); transform: translateY(-1px); }
     button.primary { background: var(--accent); color: #111827; border: none; }
     .controls-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .collapse { display: flex; flex-direction: column; gap: 6px; }
+    .collapse-panel {
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 8px;
+      max-height: 220px;
+      overflow: auto;
+    }
+    .collapse.open .collapse-panel { display: flex; }
+    .collapse .book-btn { width: 100%; text-align: left; padding: 8px 10px; }
+    .collapse .book-btn.active { border-color: rgba(249, 115, 22, 0.8); color: #fbbf24; }
     .content { flex: 1; min-width: 0; }
     .status { color: var(--muted); margin: 8px 0 12px; }
     .grid {
@@ -251,6 +266,10 @@
           <button class="with-hotkey" id="nextBook">下一本<span class="hotkey">N</span></button>
         </div>
         <div class="hint" id="bookInfo">共 0 本</div>
+        <div class="collapse" id="bookCollapse">
+          <button class="with-hotkey" id="toggleBookList">選擇漫畫</button>
+          <div class="collapse-panel" id="bookList"></div>
+        </div>
       </div>
       <div class="side-group">
         <div class="side-label">投影片張數</div>
@@ -305,6 +324,10 @@
           <button class="with-hotkey" id="prevBookModal">上一本<span class="hotkey">B</span></button>
           <button class="with-hotkey" id="nextBookModal">下一本<span class="hotkey">N</span></button>
           <button class="with-hotkey" id="closeModalModal">關閉<span class="hotkey">Esc</span></button>
+          <div class="collapse" id="bookCollapseModal">
+            <button class="with-hotkey" id="toggleBookListModal">選擇漫畫</button>
+            <div class="collapse-panel" id="bookListModal"></div>
+          </div>
           <label class="side-label" style="margin-top:4px;">投影片張數</label>
           <div class="select-wrap">
             <select id="modalSlideMode">
@@ -344,6 +367,12 @@
     const nextBookBtn = document.getElementById("nextBook");
     const prevBookModalBtn = document.getElementById("prevBookModal");
     const nextBookModalBtn = document.getElementById("nextBookModal");
+    const bookListEl = document.getElementById("bookList");
+    const bookListModalEl = document.getElementById("bookListModal");
+    const bookCollapseEl = document.getElementById("bookCollapse");
+    const bookCollapseModalEl = document.getElementById("bookCollapseModal");
+    const toggleBookListBtn = document.getElementById("toggleBookList");
+    const toggleBookListModalBtn = document.getElementById("toggleBookListModal");
     const PAGE_SIZE = 20;
     let images = [];
     const localObjectUrls = [];
@@ -356,6 +385,8 @@
     const metaPromises = [];
     let books = []; // [{ name: string, items: { name, src }[] }]
     let currentBookIndex = 0;
+    let bookSourceLabel = "本地資料夾";
+    let lastDefaultFolderName = "已選擇資料夾";
 
     function isFileDrag(event) {
       const dt = event && event.dataTransfer;
@@ -469,6 +500,11 @@
       e.stopPropagation();
       moveBook(1);
     });
+    toggleBookListBtn?.addEventListener("click", () => toggleCollapse(bookCollapseEl));
+    toggleBookListModalBtn?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleCollapse(bookCollapseModalEl);
+    });
 
     window.addEventListener("dragover", (e) => {
       if (!isFileDrag(e)) return;
@@ -488,24 +524,19 @@
         const data = await res.json();
         const names = data.images || [];
         cleanupLocalUrls();
-        images = names.map((name) => ({
+        const serverItems = names.map((name) => ({
           name,
           src: `/images/${encodeURIComponent(name)}`,
         }));
-        books = [{ name: "伺服器資料夾", items: images }];
+        books = [{ name: "伺服器資料夾", items: serverItems }];
         currentBookIndex = 0;
-        resetSlides();
-        if (!images.length) {
+        bookSourceLabel = "伺服器資料夾";
+        lastDefaultFolderName = "伺服器資料夾";
+        setActiveBook(0, bookSourceLabel, lastDefaultFolderName, false);
+        if (!serverItems.length) {
           statusEl.textContent = "請先選擇資料夾";
           emptyEl.style.display = "block";
-          updateBookControls();
-          return;
         }
-        emptyEl.style.display = "none";
-        statusEl.textContent = `共 ${images.length} 張，分頁顯示，每頁 ${PAGE_SIZE} 張`;
-        folderLabel.textContent = "使用伺服器端資料夾";
-        updateBookControls();
-        renderPage(1);
       } catch (err) {
         statusEl.textContent = "Failed to load images.";
         console.error(err);
@@ -847,15 +878,18 @@
       const total = books.length;
       currentBookIndex = ((index % total) + total) % total;
       const book = books[currentBookIndex];
+      if (sourceLabel) bookSourceLabel = sourceLabel;
+      if (defaultFolderName) lastDefaultFolderName = defaultFolderName;
 
       resetSlides();
       images = book.items || [];
-      const activeName = book.name || defaultFolderName || "已選擇資料夾";
+      const activeName = book.name || lastDefaultFolderName || "已選擇資料夾";
       folderLabel.textContent = activeName;
-      statusEl.textContent = `${sourceLabel || "本地資料夾"}：共 ${images.length} 張（${currentBookIndex + 1}/${total} 本）`;
+      statusEl.textContent = `${bookSourceLabel || "本地資料夾"}：共 ${images.length} 張（${currentBookIndex + 1}/${total} 本）`;
       emptyEl.style.display = images.length ? "none" : "block";
       renderPage(1);
       updateBookControls();
+      renderBookList();
 
       if (resumeSlide && modalEl.classList.contains("active")) {
         startSlideshow(0);
@@ -878,10 +912,48 @@
       const resumeSlide = modalEl.classList.contains("active");
       setActiveBook(
         currentBookIndex + delta,
-        "本地資料夾",
+        bookSourceLabel,
         books[currentBookIndex]?.name,
         resumeSlide
       );
+    }
+
+    function toggleCollapse(el) {
+      if (!el) return;
+      el.classList.toggle("open");
+    }
+
+    function renderBookList() {
+      const containers = [
+        { root: bookListEl, collapse: bookCollapseEl },
+        { root: bookListModalEl, collapse: bookCollapseModalEl },
+      ];
+      containers.forEach(({ root }) => {
+        if (!root) return;
+        root.innerHTML = "";
+        if (!books.length) {
+          const empty = document.createElement("div");
+          empty.className = "hint";
+          empty.textContent = "目前沒有漫畫";
+          root.appendChild(empty);
+          return;
+        }
+        const frag = document.createDocumentFragment();
+        books.forEach((book, idx) => {
+          const btn = document.createElement("button");
+          btn.className = "book-btn";
+          btn.textContent = `${idx + 1}. ${book.name}`;
+          if (idx === currentBookIndex) {
+            btn.classList.add("active");
+          }
+          btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            setActiveBook(idx, bookSourceLabel, book.name, modalEl.classList.contains("active"));
+          });
+          frag.appendChild(btn);
+        });
+        root.appendChild(frag);
+      });
     }
 
     function isImageFile(name) {
@@ -907,6 +979,8 @@
 
       cleanupLocalUrls();
       const folderName = deriveFolderName(imageFiles);
+      bookSourceLabel = sourceLabel || "本地資料夾";
+      lastDefaultFolderName = folderName || "已選擇資料夾";
       const bookGroups = buildBooks(imageFiles, folderName);
       books = bookGroups.map(({ name, files: groupFiles }) => ({
         name,
