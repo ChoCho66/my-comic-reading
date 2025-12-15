@@ -444,6 +444,16 @@
           moveSlide(1);
           e.preventDefault();
         }
+        if (e.key === "0") {
+          jumpToSlideIndex(0);
+          e.preventDefault();
+          return;
+        }
+        if (e.key === "9") {
+          jumpToSlideIndex(images.length - 1);
+          e.preventDefault();
+          return;
+        }
         if (e.key === "n" || e.key === "N") {
           moveBook(1);
           e.preventDefault();
@@ -715,6 +725,15 @@
       }
 
       slidePointer = nextPointer;
+      updateSlide();
+    }
+
+    async function jumpToSlideIndex(targetIndex) {
+      if (!images.length) return;
+      const clamped = Math.min(Math.max(0, targetIndex), Math.max(0, images.length - 1));
+      await rebuildSlides(clamped);
+      if (!slides.length) return;
+      slidePointer = findSlidePointer(clamped);
       updateSlide();
     }
 
