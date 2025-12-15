@@ -207,6 +207,9 @@
       max-width: 100%;
       margin: 0;
     }
+    .modal-stage.triple img {
+      max-width: 33.333%;
+    }
     .modal-controls {
       position: absolute;
       left: 16px;
@@ -884,6 +887,7 @@
     function renderSlideImages(indices) {
       modalStage.innerHTML = "";
       modalStage.classList.toggle("single", indices.length === 1);
+      modalStage.classList.toggle("triple", indices.length === 3);
       indices.forEach((idx) => {
         const item = images[idx];
         const img = document.createElement("img");
