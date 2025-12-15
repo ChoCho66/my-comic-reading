@@ -474,6 +474,7 @@
     document.getElementById("closeModalModal").addEventListener("click", closeModal);
     modalEl.addEventListener("click", (e) => {
       if (modalControls && modalControls.contains(e.target)) return;
+      if (slideProgressWrap && slideProgressWrap.contains(e.target)) return;
       const clickedImg = e.target.closest("#modalStage img");
       if (!clickedImg) {
         closeModal();
