@@ -459,6 +459,12 @@
           e.preventDefault();
           return;
         }
+        if (["5", "6", "7", "8"].includes(e.key)) {
+          const tenths = Number(e.key) / 10;
+          jumpToSlideProgress(tenths);
+          e.preventDefault();
+          return;
+        }
         if (e.key === "n" || e.key === "N") {
           moveBook(1);
           e.preventDefault();
@@ -745,6 +751,13 @@
       if (!slides.length) return;
       slidePointer = findSlidePointer(clamped);
       updateSlide();
+    }
+
+    function jumpToSlideProgress(fraction) {
+      if (!images.length) return;
+      const frac = Math.min(Math.max(fraction, 0), 1);
+      const target = Math.round((images.length - 1) * frac);
+      jumpToSlideIndex(target);
     }
 
     function updateSlide() {
