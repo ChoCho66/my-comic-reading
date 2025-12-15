@@ -282,8 +282,8 @@
         <div class="side-group">
           <div class="side-label">投影片控制</div>
           <div class="controls-grid">
-          <button class="with-hotkey" id="prevSlide">上一張<span class="hotkey">←</span></button>
-          <button class="with-hotkey" id="nextSlide">下一張<span class="hotkey">→/Space</span></button>
+          <button class="with-hotkey" id="prevSlide">下一張<span class="hotkey">←/Space</span></button>
+          <button class="with-hotkey" id="nextSlide">上一張<span class="hotkey">→</span></button>
           </div>
           <button class="with-hotkey" id="closeModal">關閉投影片<span class="hotkey">Esc</span></button>
           <div class="hint" id="sidebarCaption">尚未開始</div>
@@ -300,8 +300,8 @@
   <div class="modal" id="modal">
       <div class="modal-content">
         <div class="modal-controls">
-          <button class="with-hotkey" id="prevSlideModal">上一張<span class="hotkey">←</span></button>
-          <button class="with-hotkey" id="nextSlideModal">下一張<span class="hotkey">→/Space</span></button>
+          <button class="with-hotkey" id="prevSlideModal">下一張<span class="hotkey">←/Space</span></button>
+          <button class="with-hotkey" id="nextSlideModal">上一張<span class="hotkey">→</span></button>
           <button class="with-hotkey" id="prevBookModal">上一本<span class="hotkey">B</span></button>
           <button class="with-hotkey" id="nextBookModal">下一本<span class="hotkey">N</span></button>
           <button class="with-hotkey" id="closeModalModal">關閉<span class="hotkey">Esc</span></button>
@@ -385,11 +385,11 @@
     document.getElementById("nextPage").addEventListener("click", () => changePage(1));
     document.getElementById("startSlide").addEventListener("click", () => startSlideshow());
     document.getElementById("showAll").addEventListener("click", () => renderPage(currentPage));
-    document.getElementById("prevSlide").addEventListener("click", () => moveSlide(-1));
-    document.getElementById("nextSlide").addEventListener("click", () => moveSlide(1));
+    document.getElementById("prevSlide").addEventListener("click", () => moveSlide(1));
+    document.getElementById("nextSlide").addEventListener("click", () => moveSlide(-1));
     document.getElementById("closeModal").addEventListener("click", closeModal);
-    document.getElementById("prevSlideModal").addEventListener("click", () => moveSlide(-1));
-    document.getElementById("nextSlideModal").addEventListener("click", () => moveSlide(1));
+    document.getElementById("prevSlideModal").addEventListener("click", () => moveSlide(1));
+    document.getElementById("nextSlideModal").addEventListener("click", () => moveSlide(-1));
     document.getElementById("closeModalModal").addEventListener("click", closeModal);
     modalEl.addEventListener("click", (e) => {
       if (modalControls && modalControls.contains(e.target)) return;
@@ -407,8 +407,8 @@
         ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName);
 
       if (modalEl.classList.contains("active")) {
-        if (e.key === "ArrowRight") moveSlide(1);
-        if (e.key === "ArrowLeft") moveSlide(-1);
+        if (e.key === "ArrowRight") moveSlide(-1);
+        if (e.key === "ArrowLeft") moveSlide(1);
         if (e.key === " " || e.key === "Spacebar") {
           moveSlide(1);
           e.preventDefault();
@@ -665,7 +665,8 @@
         indices.push(slide.start + i);
       }
       lastSlideIndex = slide.start;
-      renderSlideImages(indices);
+      const displayOrder = indices.length === 2 ? [...indices].reverse() : indices;
+      renderSlideImages(displayOrder);
       const first = indices[0];
       const last = indices[indices.length - 1];
       const captionText =
