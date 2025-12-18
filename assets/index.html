@@ -749,6 +749,16 @@
       if (modalEl.classList.contains("active")) {
         if (e.key === "ArrowRight") moveSlide(-1);
         if (e.key === "ArrowLeft") moveSlide(1);
+        if (e.key === "ArrowUp") {
+          moveBook(-1);
+          e.preventDefault();
+          return;
+        }
+        if (e.key === "ArrowDown") {
+          moveBook(1);
+          e.preventDefault();
+          return;
+        }
         if (e.key === " " || e.key === "Spacebar") {
           moveSlide(1);
           e.preventDefault();
