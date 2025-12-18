@@ -46,10 +46,17 @@ struct SelectDirResponse {
 
 const PAGE_SIZE: usize = 20;
 const INDEX_HTML: &str = include_str!("../assets/index.html");
+const APP_JS: &str = include_str!("../assets/app.js");
+const STYLES_CSS: &str = include_str!("../assets/styles.css");
+const LAYOUT_JS: &str = include_str!("../assets/layout.js");
+const LAYOUT_HTML: &str = include_str!("../assets/layout.html");
+const I18N_JS: &str = include_str!("../assets/i18n.js");
+const DOM_JS: &str = include_str!("../assets/dom.js");
 
 pub fn app_router(state: AppState) -> Router {
     Router::new()
         .route("/", get(index))
+        .route("/assets/:name", get(get_asset))
         .route("/api/images", get(api_images))
         .route("/api/select-dir", post(select_dir))
         .route("/images/:name", get(get_image))
@@ -58,6 +65,18 @@ pub fn app_router(state: AppState) -> Router {
 
 async fn index() -> impl IntoResponse {
     Html(INDEX_HTML)
+}
+
+async fn get_asset(AxumPath(name): AxumPath<String>) -> impl IntoResponse {
+    match name.as_str() {
+        "styles.css" => asset_response(STYLES_CSS, "text/css; charset=utf-8"),
+        "app.js" => asset_response(APP_JS, "application/javascript; charset=utf-8"),
+        "layout.js" => asset_response(LAYOUT_JS, "application/javascript; charset=utf-8"),
+        "layout.html" => asset_response(LAYOUT_HTML, "text/html; charset=utf-8"),
+        "i18n.js" => asset_response(I18N_JS, "application/javascript; charset=utf-8"),
+        "dom.js" => asset_response(DOM_JS, "application/javascript; charset=utf-8"),
+        _ => StatusCode::NOT_FOUND.into_response(),
+    }
 }
 
 async fn api_images(State(state): State<AppState>) -> impl IntoResponse {
@@ -160,4 +179,13 @@ async fn get_image(State(state): State<AppState>, AxumPath(name): AxumPath<Strin
         }
         Err(_) => StatusCode::NOT_FOUND.into_response(),
     }
+}
+
+fn asset_response(body: &'static str, content_type: &'static str) -> Response {
+    let mut res = Response::new(Body::from(body));
+    res.headers_mut().insert(
+        header::CONTENT_TYPE,
+        header::HeaderValue::from_static(content_type),
+    );
+    res
 }
