@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -26,6 +26,7 @@
     }
     main { padding: 12px 14px; width: 100%; max-width: 1280px; margin: 0 auto; flex: 1; }
     .layout { display: flex; gap: 16px; align-items: flex-start; }
+    .title-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .sidebar {
       width: 260px;
       background: var(--panel);
@@ -44,6 +45,9 @@
       overscroll-behavior: contain;
     }
     .app-title { font-size: 20px; font-weight: 800; letter-spacing: 0.5px; }
+    .lang-collapse { flex-shrink: 0; }
+    .lang-collapse .collapse-panel { max-height: none; }
+    .lang-btn { width: 100%; text-align: left; }
     .side-group { display: flex; flex-direction: column; gap: 8px; }
     .side-label { font-size: 13px; color: var(--muted); font-weight: 600; }
     input[type="text"], input[type="number"], input[type="range"], select {
@@ -280,28 +284,37 @@
   <main>
     <div class="layout">
       <aside class="sidebar">
-        <div class="app-title">Comic Reader</div>
+        <div class="title-bar">
+          <div class="app-title" id="appTitle">Comic Reader</div>
+          <div class="collapse lang-collapse" id="langCollapse">
+            <button class="with-hotkey" id="toggleLang">語言</button>
+            <div class="collapse-panel">
+              <button class="book-btn lang-btn" data-lang="zh">繁體中文</button>
+              <button class="book-btn lang-btn" data-lang="en">English</button>
+            </div>
+          </div>
+        </div>
         <div class="side-group">
-          <div class="side-label">資料夾路徑</div>
+          <div class="side-label" id="folderPathLabel">資料夾路徑</div>
           <div id="folderDropZone" class="drop-zone">
             <div class="row">
               <button class="primary" id="chooseFolder">選擇資料夾</button>
               <input type="file" id="folderInput" webkitdirectory directory multiple hidden />
             </div>
-            <div class="label">點擊按鈕或將資料夾拖曳到整個瀏覽器</div>
+            <div class="label" id="dropHint">點擊按鈕或將資料夾拖曳到整個瀏覽器</div>
             <div class="folder-name" id="folderLabel">尚未選擇資料夾</div>
           </div>
-          <div class="hint">支援在頁面任意位置拖曳整個資料夾，或點「選擇資料夾」。</div>
+          <div class="hint" id="dropHelp">支援在頁面任意位置拖曳整個資料夾，或點「選擇資料夾」。</div>
         </div>
       <div class="side-group">
-        <div class="side-label">瀏覽模式</div>
+        <div class="side-label" id="viewModeLabel">瀏覽模式</div>
         <div class="controls-grid">
           <button class="primary with-hotkey" id="startSlide">投影片<span class="hotkey">S</span></button>
           <button class="with-hotkey" id="showAll">全部瀏覽<span class="hotkey">A</span></button>
         </div>
       </div>
       <div class="side-group">
-        <div class="side-label">漫畫切換</div>
+        <div class="side-label" id="bookSwitchLabel">漫畫切換</div>
         <div class="controls-grid">
           <button class="with-hotkey" id="prevBook">上一本<span class="hotkey">B</span></button>
           <button class="with-hotkey" id="nextBook">下一本<span class="hotkey">N</span></button>
@@ -313,7 +326,7 @@
         </div>
       </div>
       <div class="side-group">
-        <div class="side-label">投影片張數</div>
+        <div class="side-label" id="slideModeLabel">投影片張數</div>
         <div class="select-wrap">
           <select id="slideMode">
             <option value="auto" selected>自動 (依圖片寬度)</option>
@@ -323,10 +336,10 @@
           </select>
           <span class="hotkey">4/1/2/3</span>
         </div>
-        <div class="hint">預設自動：橫向頁單張；直向頁併成雙頁。</div>
+        <div class="hint" id="slideModeHint">預設自動：橫向頁單張；直向頁併成雙頁。</div>
       </div>
       <div class="side-group">
-        <div class="side-label">分頁控制</div>
+        <div class="side-label" id="paginationLabel">分頁控制</div>
         <div class="controls-grid">
           <button class="with-hotkey" id="prevPage">上一頁<span class="hotkey">←</span></button>
           <button class="with-hotkey" id="nextPage">下一頁<span class="hotkey">→</span></button>
@@ -337,11 +350,11 @@
           <div class="hint" id="pageInfo">第 0 / 0 頁</div>
         </div>
         <div class="side-group">
-          <div class="side-label">圖片寬度 <span id="widthValue">100%</span></div>
+          <div class="side-label"><span id="widthLabelText">圖片寬度</span> <span id="widthValue">100%</span></div>
           <input type="range" id="widthSlider" min="50" max="100" step="5" value="100" />
         </div>
         <div class="side-group">
-          <div class="side-label">投影片控制</div>
+          <div class="side-label" id="slideControlLabel">投影片控制</div>
           <div class="controls-grid">
           <button class="with-hotkey" id="prevSlide">下一張<span class="hotkey">←/Space</span></button>
           <button class="with-hotkey" id="nextSlide">上一張<span class="hotkey">→</span></button>
@@ -370,7 +383,7 @@
             <button class="with-hotkey" id="toggleBookListModal">選擇漫畫</button>
             <div class="collapse-panel" id="bookListModal"></div>
           </div>
-          <label class="side-label" style="margin-top:4px;">投影片張數</label>
+          <label class="side-label" id="modalSlideModeLabel" style="margin-top:4px;">投影片張數</label>
           <div class="select-wrap">
             <select id="modalSlideMode">
               <option value="auto" selected>自動 (依圖片寬度)</option>
@@ -403,6 +416,9 @@
     const slideProgress = document.getElementById("slideProgress");
     const slideProgressLabel = document.getElementById("slideProgressLabel");
     const sidebarCaption = document.getElementById("sidebarCaption");
+    const appTitle = document.getElementById("appTitle");
+    const langCollapse = document.getElementById("langCollapse");
+    const toggleLangBtn = document.getElementById("toggleLang");
     const folderInput = document.getElementById("folderInput");
     const folderDropZone = document.getElementById("folderDropZone");
     const folderLabel = document.getElementById("folderLabel");
@@ -410,8 +426,14 @@
     const pageSelect = document.getElementById("pageSelect");
     const widthSlider = document.getElementById("widthSlider");
     const widthValue = document.getElementById("widthValue");
+    const widthLabelText = document.getElementById("widthLabelText");
     const slideModeSelect = document.getElementById("slideMode");
     const modalSlideModeSelect = document.getElementById("modalSlideMode");
+    const folderPathLabel = document.getElementById("folderPathLabel");
+    const dropHint = document.getElementById("dropHint");
+    const dropHelp = document.getElementById("dropHelp");
+    const viewModeLabel = document.getElementById("viewModeLabel");
+    const bookSwitchLabel = document.getElementById("bookSwitchLabel");
     const bookInfoEl = document.getElementById("bookInfo");
     const prevBookBtn = document.getElementById("prevBook");
     const nextBookBtn = document.getElementById("nextBook");
@@ -423,6 +445,240 @@
     const bookCollapseModalEl = document.getElementById("bookCollapseModal");
     const toggleBookListBtn = document.getElementById("toggleBookList");
     const toggleBookListModalBtn = document.getElementById("toggleBookListModal");
+    const slideModeLabel = document.getElementById("slideModeLabel");
+    const slideModeHint = document.getElementById("slideModeHint");
+    const paginationLabel = document.getElementById("paginationLabel");
+    const slideControlLabel = document.getElementById("slideControlLabel");
+    const modalSlideModeLabel = document.getElementById("modalSlideModeLabel");
+
+    const i18n = {
+      current: "zh",
+      map: {
+        zh: {
+          code: "zh-Hant",
+          langToggle: "語言",
+          langNames: { zh: "繁體中文", en: "英文" },
+          appTitle: "Comic Reader",
+          folderPathLabel: "資料夾路徑",
+          chooseFolder: "選擇資料夾",
+          dropHint: "點擊按鈕或將資料夾拖曳到整個瀏覽器",
+          dropHelp: "支援在頁面任意位置拖曳整個資料夾，或點「選擇資料夾」。",
+          folderLabelDefault: "尚未選擇資料夾",
+          viewModeLabel: "瀏覽模式",
+          startSlide: "投影片",
+          showAll: "全部瀏覽",
+          comicSwitchLabel: "漫畫切換",
+          prevBook: "上一本",
+          nextBook: "下一本",
+          bookInfo: ({ current, total }) => (total ? `第 ${current} / ${total} 本` : "共 0 本"),
+          chooseBook: "選擇漫畫",
+          slideModeLabel: "投影片張數",
+          slideModeAuto: "自動 (依圖片寬度)",
+          slideModeSingle: "固定 1 張",
+          slideModeDouble: "固定 2 張",
+          slideModeTriple: "固定 3 張",
+          slideModeHint: "預設自動：橫向頁單張；直向頁併成雙頁。",
+          paginationLabel: "分頁控制",
+          prevPage: "上一頁",
+          nextPage: "下一頁",
+          pageInfo: ({ page, total }) => `第 ${page} / ${total} 頁`,
+          pageOption: (page) => `第 ${page} 頁`,
+          widthLabel: "圖片寬度",
+          slideControlLabel: "投影片控制",
+          nextSlide: "下一張",
+          prevSlide: "上一張",
+          closeModal: "關閉投影片",
+          closeModalShort: "關閉",
+          idleCaption: "尚未開始",
+          statusPickFolder: "請先選擇資料夾",
+          empty: "找不到圖片。",
+          bookListEmpty: "目前沒有漫畫",
+          statusNoImages: "資料夾裡沒有可用的圖片 (.png/.jpg/.jpeg)",
+          statusNoDrop: "沒有收到資料夾內容，請再試一次",
+          loadFail: "載入圖片失敗。",
+          sourceLocal: "本地資料夾",
+          sourceServer: "伺服器資料夾",
+          sourceDrop: "拖曳資料夾",
+          sourceWindowDrop: "拖曳資料夾（全畫面）",
+          sourcePicker: "選擇資料夾",
+          statusCount: ({ source, images, bookIndex, bookTotal }) =>
+            `${source}：共 ${images} 張（${bookIndex}/${bookTotal} 本）`,
+          bookLabel: ({ current, total }) => (total ? `第 ${current}/${total} 本 · ` : ""),
+          slideCaptionSingle: ({ index, total, name }) => `${index} / ${total} - ${name}`,
+          slideCaptionRange: ({ start, end, total, names }) => `${start}-${end} / ${total} - ${names[0]} & ${names[1]}`,
+        },
+        en: {
+          code: "en",
+          langToggle: "Language",
+          langNames: { zh: "Traditional Chinese", en: "English" },
+          appTitle: "Comic Reader",
+          folderPathLabel: "Folder path",
+          chooseFolder: "Choose folder",
+          dropHint: "Click the button or drop a folder onto the browser",
+          dropHelp: "Drop a folder anywhere on the page or click \"Choose folder\".",
+          folderLabelDefault: "No folder selected",
+          viewModeLabel: "View mode",
+          startSlide: "Slideshow",
+          showAll: "Show all",
+          comicSwitchLabel: "Comic navigation",
+          prevBook: "Previous book",
+          nextBook: "Next book",
+          bookInfo: ({ current, total }) => (total ? `Book ${current} / ${total}` : "0 books"),
+          chooseBook: "Choose comic",
+          slideModeLabel: "Slides per view",
+          slideModeAuto: "Auto (by image width)",
+          slideModeSingle: "Single page",
+          slideModeDouble: "Double page",
+          slideModeTriple: "Triple page",
+          slideModeHint: "Auto: portrait pages pair up; landscape stays single.",
+          paginationLabel: "Pages",
+          prevPage: "Previous page",
+          nextPage: "Next page",
+          pageInfo: ({ page, total }) => `Page ${page} / ${total}`,
+          pageOption: (page) => `Page ${page}`,
+          widthLabel: "Image width",
+          slideControlLabel: "Slideshow controls",
+          nextSlide: "Next slide",
+          prevSlide: "Previous slide",
+          closeModal: "Close slideshow",
+          closeModalShort: "Close",
+          idleCaption: "Not started",
+          statusPickFolder: "Pick a folder to start",
+          empty: "No images found.",
+          bookListEmpty: "No comics yet",
+          statusNoImages: "No supported images in this folder (.png/.jpg/.jpeg)",
+          statusNoDrop: "No folder contents received, try again",
+          loadFail: "Failed to load images.",
+          sourceLocal: "Local folder",
+          sourceServer: "Server folder",
+          sourceDrop: "Drag folder",
+          sourceWindowDrop: "Drag folder (full page)",
+          sourcePicker: "Choose folder",
+          statusCount: ({ source, images, bookIndex, bookTotal }) =>
+            `${source}: ${images} images (${bookIndex}/${bookTotal} books)`,
+          bookLabel: ({ current, total }) => (total ? `Book ${current}/${total} · ` : ""),
+          slideCaptionSingle: ({ index, total, name }) => `${index} / ${total} - ${name}`,
+          slideCaptionRange: ({ start, end, total, names }) => `${start}-${end} / ${total} - ${names[0]} & ${names[1]}`,
+        },
+      },
+      t(key, params) {
+        const langPack = this.map[this.current] || this.map.zh;
+        const value = langPack[key];
+        if (typeof value === "function") return value(params || {});
+        return value !== undefined ? value : key;
+      },
+    };
+
+    function setButtonLabel(button, label) {
+      if (!button) return;
+      const hotkey = button.querySelector(".hotkey");
+      button.textContent = label;
+      if (hotkey) button.appendChild(hotkey);
+    }
+
+    function getSourceLabel(key) {
+      const lookup = {
+        local: "sourceLocal",
+        server: "sourceServer",
+        drop: "sourceDrop",
+        windowDrop: "sourceWindowDrop",
+        picker: "sourcePicker",
+      };
+      const targetKey = lookup[key] || lookup.local;
+      return i18n.t(targetKey);
+    }
+
+    function applyLanguageText() {
+      const langPack = i18n.map[i18n.current] || i18n.map.zh;
+      document.documentElement.lang = langPack.code || "zh-Hant";
+      document.title = i18n.t("appTitle");
+      if (appTitle) appTitle.textContent = i18n.t("appTitle");
+      if (toggleLangBtn) toggleLangBtn.textContent = i18n.t("langToggle");
+      document.querySelectorAll(".lang-btn").forEach((btn) => {
+        const code = btn.dataset.lang;
+        btn.textContent = langPack.langNames?.[code] || code;
+      });
+      if (folderPathLabel) folderPathLabel.textContent = i18n.t("folderPathLabel");
+      if (folderPickerBtn) folderPickerBtn.textContent = i18n.t("chooseFolder");
+      if (dropHint) dropHint.textContent = i18n.t("dropHint");
+      if (dropHelp) dropHelp.textContent = i18n.t("dropHelp");
+      if (!books.length && folderLabel) folderLabel.textContent = i18n.t("folderLabelDefault");
+      if (bookSourceKey === "server") {
+        lastDefaultFolderName = i18n.t("sourceServer");
+      }
+      books.forEach((book) => {
+        if (book.serverNames) {
+          book.name = i18n.t("sourceServer");
+        }
+      });
+      if (books.length && books[currentBookIndex] && folderLabel) {
+        folderLabel.textContent =
+          books[currentBookIndex].name || lastDefaultFolderName || i18n.t("folderLabelDefault");
+      }
+      if (viewModeLabel) viewModeLabel.textContent = i18n.t("viewModeLabel");
+      setButtonLabel(document.getElementById("startSlide"), i18n.t("startSlide"));
+      setButtonLabel(document.getElementById("showAll"), i18n.t("showAll"));
+      if (bookSwitchLabel) bookSwitchLabel.textContent = i18n.t("comicSwitchLabel");
+      setButtonLabel(prevBookBtn, i18n.t("prevBook"));
+      setButtonLabel(nextBookBtn, i18n.t("nextBook"));
+      setButtonLabel(prevBookModalBtn, i18n.t("prevBook"));
+      setButtonLabel(nextBookModalBtn, i18n.t("nextBook"));
+      setButtonLabel(toggleBookListBtn, i18n.t("chooseBook"));
+      setButtonLabel(toggleBookListModalBtn, i18n.t("chooseBook"));
+      if (slideModeLabel) slideModeLabel.textContent = i18n.t("slideModeLabel");
+      if (modalSlideModeLabel) modalSlideModeLabel.textContent = i18n.t("slideModeLabel");
+      if (slideModeHint) slideModeHint.textContent = i18n.t("slideModeHint");
+      if (paginationLabel) paginationLabel.textContent = i18n.t("paginationLabel");
+      setButtonLabel(document.getElementById("prevPage"), i18n.t("prevPage"));
+      setButtonLabel(document.getElementById("nextPage"), i18n.t("nextPage"));
+      if (slideControlLabel) slideControlLabel.textContent = i18n.t("slideControlLabel");
+      setButtonLabel(document.getElementById("prevSlide"), i18n.t("nextSlide"));
+      setButtonLabel(document.getElementById("nextSlide"), i18n.t("prevSlide"));
+      setButtonLabel(document.getElementById("closeModal"), i18n.t("closeModal"));
+      setButtonLabel(document.getElementById("prevSlideModal"), i18n.t("nextSlide"));
+      setButtonLabel(document.getElementById("nextSlideModal"), i18n.t("prevSlide"));
+      setButtonLabel(document.getElementById("closeModalModal"), i18n.t("closeModalShort"));
+      if (widthLabelText) widthLabelText.textContent = i18n.t("widthLabel");
+      if (emptyEl) emptyEl.textContent = i18n.t("empty");
+      if (!images.length) {
+        sidebarCaption.textContent = i18n.t("idleCaption");
+        modalCaption.textContent = i18n.t("idleCaption");
+      }
+      setSlideModeOptionLabels();
+      renderPage(currentPage);
+      updateBookControls();
+      updateStatusText();
+      updateSlideProgressBar();
+      if (slides.length) {
+        updateSlide();
+      }
+    }
+
+    function setSlideModeOptionLabels() {
+      const autoLabel = i18n.t("slideModeAuto");
+      const singleLabel = i18n.t("slideModeSingle");
+      const doubleLabel = i18n.t("slideModeDouble");
+      const tripleLabel = i18n.t("slideModeTriple");
+      [slideModeSelect, modalSlideModeSelect].forEach((select) => {
+        if (!select) return;
+        const autoOpt = select.querySelector('option[value="auto"]');
+        const singleOpt = select.querySelector('option[value="single"]');
+        const doubleOpt = select.querySelector('option[value="double"]');
+        const tripleOpt = select.querySelector('option[value="triple"]');
+        if (autoOpt) autoOpt.textContent = autoLabel;
+        if (singleOpt) singleOpt.textContent = singleLabel;
+        if (doubleOpt) doubleOpt.textContent = doubleLabel;
+        if (tripleOpt) tripleOpt.textContent = tripleLabel;
+      });
+    }
+
+    function setLanguage(lang) {
+      i18n.current = lang === "en" ? "en" : "zh";
+      if (!books.length) {
+        lastDefaultFolderName = i18n.t("folderLabelDefault");
+      }
+      applyLanguageText();
+    }
     const PAGE_SIZE = 20;
     let images = [];
     const localObjectUrls = [];
@@ -435,8 +691,10 @@
     const metaPromises = [];
     let books = []; // [{ name: string, items: { name, src }[] }]
     let currentBookIndex = 0;
-    let bookSourceLabel = "本地資料夾";
-    let lastDefaultFolderName = "已選擇資料夾";
+    let bookSourceKey = "local";
+    let lastDefaultFolderName = i18n.t("folderLabelDefault");
+    let statusKey = "statusPickFolder";
+    let statusParams = null;
 
     function isFileDrag(event) {
       const dt = event && event.dataTransfer;
@@ -446,7 +704,7 @@
     folderPickerBtn.addEventListener("click", () => folderInput.click());
     folderInput.addEventListener("change", () => {
       if (folderInput.files && folderInput.files.length > 0) {
-        handleLocalFiles(folderInput.files, "選擇資料夾");
+        handleLocalFiles(folderInput.files, "picker");
       }
       folderInput.value = "";
     });
@@ -457,7 +715,7 @@
       folderDropZone.classList.add("dragover");
     });
     folderDropZone.addEventListener("dragleave", () => folderDropZone.classList.remove("dragover"));
-    folderDropZone.addEventListener("drop", (e) => handleDropEvent(e, "拖曳資料夾"));
+    folderDropZone.addEventListener("drop", (e) => handleDropEvent(e, "drop"));
     pageSelect.addEventListener("change", onSelectPage);
     widthSlider.addEventListener("input", () => setWidth(widthSlider.value));
     slideModeSelect.addEventListener("change", () => applySlideMode(slideModeSelect.value));
@@ -577,6 +835,14 @@
       const val = Number(slideProgress.value);
       jumpToSlideIndex(val);
     });
+    toggleLangBtn?.addEventListener("click", () => toggleCollapse(langCollapse));
+    document.querySelectorAll(".lang-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setLanguage(btn.dataset.lang);
+        if (langCollapse) langCollapse.classList.remove("open");
+      });
+    });
 
     window.addEventListener("dragover", (e) => {
       if (!isFileDrag(e)) return;
@@ -588,7 +854,7 @@
       if (!isFileDrag(e)) return;
       folderDropZone.classList.remove("dragover");
     });
-    window.addEventListener("drop", (e) => handleDropEvent(e, "拖曳資料夾（全畫面）"));
+    window.addEventListener("drop", (e) => handleDropEvent(e, "windowDrop"));
 
     async function loadImagesFromServer() {
       try {
@@ -596,17 +862,18 @@
         const data = await res.json();
         const names = data.images || [];
         cleanupLocalUrls();
-        books = [{ name: "伺服器資料夾", serverNames: names }];
+        const serverName = i18n.t("sourceServer");
+        books = [{ name: serverName, serverNames: names }];
         currentBookIndex = 0;
-        bookSourceLabel = "伺服器資料夾";
-        lastDefaultFolderName = "伺服器資料夾";
-        setActiveBook(0, bookSourceLabel, lastDefaultFolderName, false);
+        bookSourceKey = "server";
+        lastDefaultFolderName = serverName;
+        setActiveBook(0, bookSourceKey, lastDefaultFolderName, false);
         if (!names.length) {
-          statusEl.textContent = "請先選擇資料夾";
+          setStatus("statusPickFolder");
           emptyEl.style.display = "block";
         }
       } catch (err) {
-        statusEl.textContent = "Failed to load images.";
+        setStatus("loadFail");
         console.error(err);
       }
     }
@@ -639,7 +906,7 @@
       });
 
       const totalPages = Math.max(1, Math.ceil(images.length / PAGE_SIZE));
-      pageInfoEl.textContent = `第 ${page} / ${totalPages} 頁`;
+      pageInfoEl.textContent = i18n.t("pageInfo", { page, total: totalPages });
       document.getElementById("prevPage").disabled = page <= 1;
       document.getElementById("nextPage").disabled = page >= totalPages;
       updatePageSelect(totalPages);
@@ -659,11 +926,42 @@
       for (let i = 1; i <= totalPages; i++) {
         const opt = document.createElement("option");
         opt.value = String(i);
-        opt.textContent = `第 ${i} 頁`;
+        opt.textContent = i18n.t("pageOption", i);
         frag.appendChild(opt);
       }
       pageSelect.innerHTML = "";
       pageSelect.appendChild(frag);
+    }
+
+    function formatStatus(key, params) {
+      if (key === "statusCount") {
+        const imageTotal = params && typeof params.images === "number" ? params.images : images.length;
+        const bookTotal =
+          params && typeof params.bookTotal === "number" ? params.bookTotal : books.length || 0;
+        const bookIndex =
+          params && typeof params.bookIndex === "number" ? params.bookIndex : currentBookIndex + 1;
+        const sourceKeyParam = params && params.sourceKey ? params.sourceKey : bookSourceKey;
+        const sourceText = getSourceLabel(sourceKeyParam);
+        return i18n.t("statusCount", {
+          source: sourceText,
+          images: imageTotal,
+          bookIndex,
+          bookTotal,
+        });
+      }
+      return i18n.t(key || "statusPickFolder");
+    }
+
+    function setStatus(key, params) {
+      statusKey = key;
+      statusParams = params || null;
+      if (!statusEl) return;
+      statusEl.textContent = formatStatus(key, params);
+    }
+
+    function updateStatusText() {
+      if (!statusEl) return;
+      statusEl.textContent = formatStatus(statusKey, statusParams);
     }
 
     function onSelectPage() {
@@ -760,7 +1058,7 @@
           const nextBookIdx = currentBookIndex + 1;
           setActiveBook(
             nextBookIdx,
-            bookSourceLabel,
+            bookSourceKey,
             books[nextBookIdx]?.name,
             true,
             0
@@ -781,7 +1079,7 @@
           const lastIdx = Math.max(0, prevCount - 1);
           setActiveBook(
             prevBookIdx,
-            bookSourceLabel,
+            bookSourceKey,
             books[prevBookIdx]?.name,
             true,
             lastIdx
@@ -840,9 +1138,20 @@
       const last = indices[indices.length - 1];
       const captionText =
         indices.length === 2
-          ? `${first + 1}-${last + 1} / ${images.length} - ${images[first].name} & ${images[last].name}`
-          : `${first + 1} / ${images.length} - ${images[first].name}`;
-      const bookLabel = books.length ? `第 ${currentBookIndex + 1}/${books.length} 本 · ` : "";
+          ? i18n.t("slideCaptionRange", {
+              start: first + 1,
+              end: last + 1,
+              total: images.length,
+              names: [images[first].name, images[last].name],
+            })
+          : i18n.t("slideCaptionSingle", {
+              index: first + 1,
+              total: images.length,
+              name: images[first].name,
+            });
+      const bookLabel = books.length
+        ? i18n.t("bookLabel", { current: currentBookIndex + 1, total: books.length })
+        : "";
       const fullCaption = `${bookLabel}${captionText}`;
       modalCaption.textContent = fullCaption;
       sidebarCaption.textContent = fullCaption;
@@ -1016,21 +1325,31 @@
       }).sort(sortByName);
     }
 
-    function setActiveBook(index, sourceLabel, defaultFolderName, resumeSlide, resumeSlideIndex) {
+    function setActiveBook(index, sourceKey, defaultFolderName, resumeSlide, resumeSlideIndex) {
       if (!books.length) return;
       const total = books.length;
       currentBookIndex = ((index % total) + total) % total;
       const book = books[currentBookIndex];
-      if (sourceLabel) bookSourceLabel = sourceLabel;
+      if (sourceKey) bookSourceKey = sourceKey;
       if (defaultFolderName) lastDefaultFolderName = defaultFolderName;
 
       cleanupLocalUrls();
       resetSlides();
       images = loadBookItems(book);
-      const activeName = book.name || lastDefaultFolderName || "已選擇資料夾";
+      const fallbackName = lastDefaultFolderName || i18n.t("folderLabelDefault");
+      const activeName = book.name || fallbackName;
       folderLabel.textContent = activeName;
-      statusEl.textContent = `${bookSourceLabel || "本地資料夾"}：共 ${images.length} 張（${currentBookIndex + 1}/${total} 本）`;
       emptyEl.style.display = images.length ? "none" : "block";
+      if (images.length) {
+        setStatus("statusCount", {
+          sourceKey: bookSourceKey,
+          images: images.length,
+          bookIndex: currentBookIndex + 1,
+          bookTotal: total,
+        });
+      } else {
+        setStatus("statusPickFolder");
+      }
       const initialIndexRaw = typeof resumeSlideIndex === "number" ? resumeSlideIndex : 0;
       const initialIndex = Math.min(Math.max(0, initialIndexRaw), Math.max(0, images.length - 1));
       const initialPage = Math.max(1, Math.floor(initialIndex / PAGE_SIZE) + 1);
@@ -1038,6 +1357,7 @@
       updateBookControls();
       renderBookList();
       updateSlideProgressBar();
+      updateStatusText();
 
       if (resumeSlide && modalEl.classList.contains("active")) {
         startSlideshow(initialIndex);
@@ -1047,7 +1367,7 @@
     function updateBookControls() {
       const total = books.length || 0;
       const current = total ? currentBookIndex + 1 : 0;
-      bookInfoEl.textContent = total ? `第 ${current} / ${total} 本` : "共 0 本";
+      bookInfoEl.textContent = i18n.t("bookInfo", { current, total });
       const disabled = total <= 1;
       prevBookBtn.disabled = disabled;
       nextBookBtn.disabled = disabled;
@@ -1061,7 +1381,7 @@
       const resumeSlide = modalEl.classList.contains("active");
       setActiveBook(
         targetIndex,
-        bookSourceLabel,
+        bookSourceKey,
         books[targetIndex]?.name,
         resumeSlide,
         0
@@ -1088,7 +1408,7 @@
         if (!books.length) {
           const empty = document.createElement("div");
           empty.className = "hint";
-          empty.textContent = "目前沒有漫畫";
+          empty.textContent = i18n.t("bookListEmpty");
           root.appendChild(empty);
           return;
         }
@@ -1103,7 +1423,7 @@
           btn.addEventListener("click", (e) => {
             e.stopPropagation();
             const resumeSlide = modalEl.classList.contains("active");
-            setActiveBook(idx, bookSourceLabel, book.name, resumeSlide, resumeSlide ? 0 : undefined);
+            setActiveBook(idx, bookSourceKey, book.name, resumeSlide, resumeSlide ? 0 : undefined);
           });
           frag.appendChild(btn);
         });
@@ -1143,23 +1463,24 @@
       }
     }
 
-    function handleLocalFiles(fileList, sourceLabel) {
+    function handleLocalFiles(fileList, sourceKey) {
       const resumeSlide = modalEl.classList.contains("active");
       const files = Array.from(fileList || []);
       const imageFiles = files.filter((file) => isImageFile(file.name));
       if (!imageFiles.length) {
-        statusEl.textContent = "資料夾裡沒有可用的圖片 (.png/.jpg/.jpeg)";
+        setStatus("statusNoImages");
         emptyEl.style.display = "block";
         books = [];
         currentBookIndex = 0;
         updateBookControls();
+        renderBookList();
         return;
       }
 
       cleanupLocalUrls();
       const folderName = deriveFolderName(imageFiles);
-      bookSourceLabel = sourceLabel || "本地資料夾";
-      lastDefaultFolderName = folderName || "已選擇資料夾";
+      bookSourceKey = sourceKey || "local";
+      lastDefaultFolderName = folderName || i18n.t("folderLabelDefault");
       const bookGroups = buildBooks(imageFiles, folderName);
       books = bookGroups.map(({ name, files: groupFiles }) => ({
         name,
@@ -1171,24 +1492,24 @@
       );
       setActiveBook(
         currentBookIndex,
-        sourceLabel,
+        bookSourceKey,
         folderName,
         resumeSlide,
         resumeSlide ? 0 : undefined
       );
     }
 
-    async function handleDropEvent(event, sourceLabel = "拖曳資料夾") {
+    async function handleDropEvent(event, sourceKey = "drop") {
       if (!isFileDrag(event)) return;
       event.preventDefault();
       event.stopPropagation();
       folderDropZone.classList.remove("dragover");
       const files = await extractFilesFromDataTransfer(event.dataTransfer);
       if (!files.length) {
-        statusEl.textContent = "沒有收到資料夾內容，請再試一次";
+        setStatus("statusNoDrop");
         return;
       }
-      handleLocalFiles(files, sourceLabel);
+      handleLocalFiles(files, sourceKey);
     }
 
     function entryToFiles(entry) {
@@ -1248,9 +1569,10 @@
       return Array.from(dataTransfer.files || []);
     }
 
+    applyLanguageText();
+    setWidth(widthSlider.value);
     loadImagesFromServer();
     syncSlideModeSelectors();
-    setWidth(widthSlider.value);
   </script>
 </body>
 </html>
