@@ -45,7 +45,7 @@ async fn main() -> Result<()> {
     if let Some(dir) = initial_dir.as_ref() {
         if initial_images.is_empty() {
             bail!(
-                "No images found in {} (looking for .png, .jpg, .jpeg)",
+                "No images found in {} (looking for .png, .jpg, .jpeg, .webp)",
                 dir.display()
             );
         }

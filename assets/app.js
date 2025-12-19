@@ -905,7 +905,7 @@ const {
     }
 
     function isImageFile(name) {
-      return /\.(png|jpe?g)$/i.test(name);
+      return /\.(png|jpe?g|webp)$/i.test(name);
     }
 
     function sortByName(a, b) {

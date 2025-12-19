@@ -38,13 +38,14 @@ pub fn content_type_for(name: &str) -> &'static str {
     {
         Some("png") => "image/png",
         Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("webp") => "image/webp",
         _ => "application/octet-stream",
     }
 }
 
 fn is_image(path: &Path) -> bool {
     match path.extension().and_then(|ext| ext.to_str()) {
-        Some(ext) => matches!(ext.to_ascii_lowercase().as_str(), "png" | "jpg" | "jpeg"),
+        Some(ext) => matches!(ext.to_ascii_lowercase().as_str(), "png" | "jpg" | "jpeg" | "webp"),
         None => false,
     }
 }
