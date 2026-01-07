@@ -1,3 +1,4 @@
+// Binary entry point for the Comic Reader server.
 use anyhow::{Context, Result, bail};
 use clap::Parser;
 use std::{net::SocketAddr, path::PathBuf};
@@ -30,6 +31,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Parse CLI flags and validate initial directory if provided.
     let args = Args::parse();
     let initial_dir = match args.dir {
         Some(dir) => Some(validate_directory(dir)?),
@@ -51,9 +53,11 @@ async fn main() -> Result<()> {
         }
     }
 
+    // Create shared app state and router.
     let state = AppState::new(initial_dir, initial_images);
     let app = app_router(state);
 
+    // Bind to localhost and build the base URL.
     let addr = SocketAddr::from(([127, 0, 0, 1], args.port));
     let listener = tokio::net::TcpListener::bind(addr)
         .await
@@ -72,12 +76,14 @@ async fn main() -> Result<()> {
     println!("Serving comics at {url}");
     println!("Press Ctrl+C to stop the server.");
 
+    // Run the Axum server with Ctrl+C graceful shutdown.
     let server = axum::serve(listener, app).with_graceful_shutdown(shutdown_signal());
     server.await.context("server error")?;
     Ok(())
 }
 
 async fn shutdown_signal() {
+    // Wait for Ctrl+C so the server can exit cleanly.
     let _ = signal::ctrl_c().await;
     println!("\nShutting down...");
 }

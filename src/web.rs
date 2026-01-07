@@ -1,3 +1,4 @@
+// HTTP layer: serves the static assets, exposes APIs, and streams image files.
 use axum::{
     Json, Router,
     body::Body,
@@ -54,6 +55,7 @@ const I18N_JS: &str = include_str!("../assets/i18n.js");
 const DOM_JS: &str = include_str!("../assets/dom.js");
 
 pub fn app_router(state: AppState) -> Router {
+    // Wire up routes for the page, static assets, APIs, and image streaming.
     Router::new()
         .route("/", get(index))
         .route("/assets/:name", get(get_asset))
@@ -68,6 +70,7 @@ async fn index() -> impl IntoResponse {
 }
 
 async fn get_asset(AxumPath(name): AxumPath<String>) -> impl IntoResponse {
+    // Serve inlined assets from constants instead of hitting the filesystem.
     match name.as_str() {
         "styles.css" => asset_response(STYLES_CSS, "text/css; charset=utf-8"),
         "app.js" => asset_response(APP_JS, "application/javascript; charset=utf-8"),
@@ -81,6 +84,7 @@ async fn get_asset(AxumPath(name): AxumPath<String>) -> impl IntoResponse {
 
 async fn api_images(State(state): State<AppState>) -> impl IntoResponse {
     let images = state.images.lock().await.clone();
+    // Send the image names + page size so the frontend can paginate.
     Json(ImagesResponse {
         images,
         page_size: PAGE_SIZE,
@@ -91,6 +95,7 @@ async fn select_dir(
     State(state): State<AppState>,
     Json(payload): Json<SelectDirRequest>,
 ) -> impl IntoResponse {
+    // Validate the incoming path, read images, then update shared state.
     let trimmed = payload.path.trim();
     if trimmed.is_empty() {
         return (
@@ -150,6 +155,7 @@ async fn select_dir(
 }
 
 async fn get_image(State(state): State<AppState>, AxumPath(name): AxumPath<String>) -> Response {
+    // Quick guard against path traversal attempts.
     if name.contains("..") || name.contains('/') || name.contains('\\') {
         return StatusCode::BAD_REQUEST.into_response();
     }
@@ -172,6 +178,7 @@ async fn get_image(State(state): State<AppState>, AxumPath(name): AxumPath<Strin
     match tokio::fs::read(&path).await {
         Ok(bytes) => {
             let mime = content_type_for(&name);
+            // Build an HTTP response with the right Content-Type so browsers render it.
             let mut res = Response::new(Body::from(bytes));
             res.headers_mut()
                 .insert(header::CONTENT_TYPE, header::HeaderValue::from_static(mime));

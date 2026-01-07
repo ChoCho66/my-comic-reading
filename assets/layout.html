@@ -1,3 +1,4 @@
+<!-- Layout markup injected by assets/layout.js -->
 <main>
     <div class="layout">
       <aside class="sidebar">
@@ -55,12 +56,12 @@
         </div>
         <div class="hint" id="slideModeHint">預設自動：橫向頁單張；直向頁併成雙頁。</div>
       </div>
-      <div class="side-group">
-        <div class="side-label" id="paginationLabel">分頁控制</div>
-        <div class="controls-grid">
-          <button class="with-hotkey" id="prevPage">上一頁<span class="hotkey">←</span></button>
-          <button class="with-hotkey" id="nextPage">下一頁<span class="hotkey">→</span></button>
-          </div>
+        <div class="side-group">
+          <div class="side-label" id="paginationLabel">分頁控制</div>
+          <div class="controls-grid">
+            <button class="with-hotkey" id="prevPage">上一頁<span class="hotkey">←</span></button>
+            <button class="with-hotkey" id="nextPage">下一頁<span class="hotkey">→</span></button>
+            </div>
           <div class="row">
             <select id="pageSelect"></select>
           </div>
@@ -80,6 +81,7 @@
           <div class="hint" id="sidebarCaption">尚未開始</div>
         </div>
       </aside>
+      <!-- Main gallery content -->
       <section class="content">
         <div class="status" id="status">請先選擇資料夾</div>
         <div class="grid" id="grid"></div>
@@ -88,6 +90,7 @@
     </div>
   </main>
 
+  <!-- Fullscreen slideshow modal -->
   <div class="modal" id="modal">
       <div class="modal-content">
         <div class="modal-controls">
@@ -121,6 +124,8 @@
   </div>
 
   <script>
+    // NOTE: This inline script mirrors the logic in assets/app.js and is kept here so
+    // layout.html can also run standalone. See assets/app.js for more detailed comments.
     const gridEl = document.getElementById("grid");
     const pageInfoEl = document.getElementById("pageInfo");
     const statusEl = document.getElementById("status");

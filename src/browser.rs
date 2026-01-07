@@ -1,3 +1,4 @@
+// Helpers for opening the web UI in a chosen browser.
 use anyhow::{Context, Result};
 use clap::ValueEnum;
 use std::process::Command;
@@ -11,6 +12,7 @@ pub enum BrowserChoice {
 }
 
 pub async fn launch_browser(choice: BrowserChoice, url: &str) -> Result<()> {
+    // Spawn the browser work on a blocking thread so we don't stall async tasks.
     let url = url.to_string();
     tokio::task::spawn_blocking(move || -> Result<()> {
         match choice {
@@ -28,6 +30,7 @@ pub async fn launch_browser(choice: BrowserChoice, url: &str) -> Result<()> {
 }
 
 fn open_edge(url: &str) -> Result<()> {
+    // macOS: use `open -a` to target the Edge app bundle.
     if cfg!(target_os = "macos") {
         Command::new("open")
             .args(["-a", "Microsoft Edge", url])
@@ -36,6 +39,7 @@ fn open_edge(url: &str) -> Result<()> {
         return Ok(());
     }
 
+    // Windows: special URI scheme launches Edge.
     if cfg!(target_os = "windows") {
         Command::new("cmd")
             .args(["/C", "start", &format!("microsoft-edge:{url}")])
@@ -57,6 +61,7 @@ fn open_edge(url: &str) -> Result<()> {
 }
 
 fn open_brave(url: &str) -> Result<()> {
+    // macOS: use `open -a` with the Brave app bundle name.
     if cfg!(target_os = "macos") {
         Command::new("open")
             .args(["-a", "Brave Browser", url])
@@ -65,6 +70,7 @@ fn open_brave(url: &str) -> Result<()> {
         return Ok(());
     }
 
+    // Windows: Brave registers as a normal browser, so `start` works.
     if cfg!(target_os = "windows") {
         Command::new("cmd")
             .args(["/C", "start", url])

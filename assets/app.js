@@ -1,6 +1,9 @@
+// Main client logic for the Comic Reader.
+// This file wires up the UI, handles drag/drop, builds slides, and keeps state in sync.
 import { initDomRefs } from "/assets/dom.js";
 import { i18n, setButtonLabel, getSourceLabel } from "/assets/i18n.js";
 
+// Grab all DOM nodes once so the rest of the code can reuse them easily.
 const {
   gridEl,
   pageInfoEl,
@@ -50,7 +53,10 @@ const {
   modalSlideModeLabel,
 } = initDomRefs();
 
+// --- Language + UI text handling ---
+
     function applyLanguageText() {
+      // Redraw every label based on the active language.
       const langPack = i18n.map[i18n.current] || i18n.map.zh;
       document.documentElement.lang = langPack.code || "zh-Hant";
       document.title = i18n.t("appTitle");
@@ -117,6 +123,7 @@ const {
     }
 
     function setSlideModeOptionLabels() {
+      // Make sure dropdown options use translated text.
       const autoLabel = i18n.t("slideModeAuto");
       const singleLabel = i18n.t("slideModeSingle");
       const doubleLabel = i18n.t("slideModeDouble");
@@ -135,36 +142,41 @@ const {
     }
 
     function setLanguage(lang) {
+      // Switch between zh/en and refresh the UI.
       i18n.current = lang === "en" ? "en" : "zh";
       if (!books.length) {
         lastDefaultFolderName = i18n.t("folderLabelDefault");
       }
       applyLanguageText();
     }
-    const PAGE_SIZE = 20;
-    let images = [];
-    const localObjectUrls = [];
-    let currentPage = 1;
-    let lastSlideIndex = 0;
-    let slideMode = "auto";
-    let slides = []; // [{ start: number, count: number }]
-    let slidePointer = 0; // index inside slides
-    const imageMeta = [];
-    const metaPromises = [];
-    let books = []; // [{ name: string, items: { name, src }[] }]
-    let currentBookIndex = 0;
-    let bookSourceKey = "local";
+    // --- Core state ---
+    const PAGE_SIZE = 20;               // How many thumbnails per page in the grid.
+    let images = [];                    // Currently loaded image items for the active book.
+    const localObjectUrls = [];         // Blob URLs that must be revoked on cleanup.
+    let currentPage = 1;                // Current grid page (1-based).
+    let lastSlideIndex = 0;             // Remember last slide index so we can resume.
+    let slideMode = "auto";             // auto | single | double | triple.
+    let slides = [];                    // Precomputed slide windows: [{ start, count }]
+    let slidePointer = 0;               // Index inside `slides` array.
+    const imageMeta = [];               // Cached natural width/height for auto pairing.
+    const metaPromises = [];            // Promises to avoid loading the same image twice.
+    let books = [];                     // [{ name: string, items: { name, src }[] }]
+    let currentBookIndex = 0;           // Which book is being viewed.
+    let bookSourceKey = "local";        // local | server | drop | windowDrop | picker
     let lastDefaultFolderName = i18n.t("folderLabelDefault");
     let statusKey = "statusPickFolder";
     let statusParams = null;
 
     function isFileDrag(event) {
+      // Quick guard: only respond to drags that actually contain files.
       const dt = event && event.dataTransfer;
       return !!dt && Array.from(dt.types || []).includes("Files");
     }
 
+    // --- UI event wiring ---
     folderPickerBtn.addEventListener("click", () => folderInput.click());
     folderInput.addEventListener("change", () => {
+      // Using the native folder picker (webkitdirectory) to collect files.
       if (folderInput.files && folderInput.files.length > 0) {
         handleLocalFiles(folderInput.files, "picker");
       }
@@ -192,6 +204,7 @@ const {
     document.getElementById("prevSlideModal").addEventListener("click", () => moveSlide(1));
     document.getElementById("nextSlideModal").addEventListener("click", () => moveSlide(-1));
     document.getElementById("closeModalModal").addEventListener("click", closeModal);
+    // Allow clicking outside the image to close the modal.
     modalEl.addEventListener("click", (e) => {
       if (modalControls && modalControls.contains(e.target)) return;
       if (slideProgressWrap && slideProgressWrap.contains(e.target)) return;
@@ -204,6 +217,8 @@ const {
         closeModal();
       }
     });
+
+    // Keyboard shortcuts for both the modal view and the grid view.
     document.addEventListener("keydown", (e) => {
       const isFormField = e.target instanceof HTMLElement &&
         ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName);
@@ -258,6 +273,7 @@ const {
         return;
       }
 
+      // Grid mode shortcuts (ignore when typing into form fields).
       if (isFormField) return;
       if (handleSlideModeHotkey(e)) return;
       if (e.key === "s" || e.key === "S") {
@@ -287,6 +303,7 @@ const {
         e.preventDefault();
       }
     });
+    // Book navigation controls (sidebar + modal).
     prevBookBtn.addEventListener("click", () => moveBook(-1));
     nextBookBtn.addEventListener("click", () => moveBook(1));
     prevBookModalBtn.addEventListener("click", (e) => {
@@ -302,11 +319,15 @@ const {
       e.stopPropagation();
       toggleCollapse(bookCollapseModalEl);
     });
+
+    // Slide progress scrubber in the modal.
     slideProgress?.addEventListener("input", () => {
       if (!slideProgress) return;
       const val = Number(slideProgress.value);
       jumpToSlideIndex(val);
     });
+
+    // Language toggles in the sidebar.
     toggleLangBtn?.addEventListener("click", () => toggleCollapse(langCollapse));
     document.querySelectorAll(".lang-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
@@ -316,6 +337,7 @@ const {
       });
     });
 
+    // Allow dropping folders anywhere on the page, not just the box.
     window.addEventListener("dragover", (e) => {
       if (!isFileDrag(e)) return;
       e.preventDefault();
@@ -328,6 +350,7 @@ const {
     });
     window.addEventListener("drop", (e) => handleDropEvent(e, "windowDrop"));
 
+    // Fetch pre-hosted images from /api/images so the app works even without a folder drop.
     async function loadImagesFromServer() {
       try {
         const res = await fetch("/api/images");
@@ -350,6 +373,7 @@ const {
       }
     }
 
+    // Render a grid page of thumbnails.
     function renderPage(page = 1) {
       currentPage = page;
       const start = (page - 1) * PAGE_SIZE;
@@ -385,6 +409,7 @@ const {
       pageSelect.value = String(page);
     }
 
+    // Move to previous or next page in the grid.
     function changePage(delta) {
       const next = currentPage + delta;
       const totalPages = Math.max(1, Math.ceil(images.length / PAGE_SIZE));
@@ -392,6 +417,7 @@ const {
       renderPage(next);
     }
 
+    // Rebuild the page dropdown whenever total pages change.
     function updatePageSelect(totalPages) {
       if (!pageSelect) return;
       const frag = document.createDocumentFragment();
@@ -405,6 +431,7 @@ const {
       pageSelect.appendChild(frag);
     }
 
+    // Keep status text unified (supports interpolation).
     function formatStatus(key, params) {
       if (key === "statusCount") {
         const imageTotal = params && typeof params.images === "number" ? params.images : images.length;
@@ -424,6 +451,7 @@ const {
       return i18n.t(key || "statusPickFolder");
     }
 
+    // Store + render the status message.
     function setStatus(key, params) {
       statusKey = key;
       statusParams = params || null;
@@ -431,11 +459,13 @@ const {
       statusEl.textContent = formatStatus(key, params);
     }
 
+    // Rerender status text when language or counts change.
     function updateStatusText() {
       if (!statusEl) return;
       statusEl.textContent = formatStatus(statusKey, statusParams);
     }
 
+    // Jump to a selected page when the dropdown changes.
     function onSelectPage() {
       const totalPages = Math.max(1, Math.ceil(images.length / PAGE_SIZE));
       const target = parseInt(pageSelect.value, 10);
@@ -444,6 +474,7 @@ const {
       renderPage(page);
     }
 
+    // Adjust displayed image width and mirror the slider value back to the UI.
     function setWidth(val) {
       // Snap to the nearest 5% so widths are 100%, 95%, 90%, ...
       const num = Number(val);
@@ -454,6 +485,7 @@ const {
       widthValue.textContent = `${snapped}%`;
     }
 
+    // Keyboard shortcuts for slide mode (auto/single/double/triple).
     function handleSlideModeHotkey(event) {
       const key = event.key;
       if (key === "1") {
@@ -479,11 +511,13 @@ const {
       return false;
     }
 
+    // Keep both dropdowns (sidebar + modal) showing the same mode.
     function syncSlideModeSelectors() {
       if (slideModeSelect) slideModeSelect.value = slideMode;
       if (modalSlideModeSelect) modalSlideModeSelect.value = slideMode;
     }
 
+    // Change slide mode, rebuild slide windows, and optionally refresh modal.
     function applySlideMode(mode, targetIndex) {
       slideMode = mode || "auto";
       syncSlideModeSelectors();
@@ -501,11 +535,13 @@ const {
       return Math.floor(idx / PAGE_SIZE) + 1;
     }
 
+    // Open the modal and start the slideshow from a target image.
     async function startSlideshow(index) {
       if (!images.length) return;
       const pageStart = currentPageStartIndex();
       let target = typeof index === "number" ? index : pageStart;
       const pageEnd = pageStart + PAGE_SIZE;
+      // If we were already on this page, resume from the last slide we saw.
       if (typeof index !== "number" && lastSlideIndex >= pageStart && lastSlideIndex < pageEnd) {
         target = lastSlideIndex;
       }
@@ -514,6 +550,7 @@ const {
       updateSlide();
     }
 
+    // Move forwards/backwards through slides, crossing book boundaries when needed.
     async function moveSlide(delta) {
       if (!images.length) return;
 
@@ -565,6 +602,7 @@ const {
       updateSlide();
     }
 
+    // Jump to a specific slide index (0-based).
     async function jumpToSlideIndex(targetIndex) {
       if (!images.length) return;
       const clamped = Math.min(Math.max(0, targetIndex), Math.max(0, images.length - 1));
@@ -574,6 +612,7 @@ const {
       updateSlide();
     }
 
+    // Jump using a fraction (0..1) instead of an absolute index.
     function jumpToSlideProgress(fraction) {
       if (!images.length) return;
       const frac = Math.min(Math.max(fraction, 0), 1);
@@ -581,6 +620,7 @@ const {
       jumpToSlideIndex(target);
     }
 
+    // Keep the range input + label in sync with the active slide.
     function updateSlideProgressBar() {
       if (!slideProgress) return;
       const total = images.length;
@@ -596,6 +636,7 @@ const {
       }
     }
 
+    // Render the current slide (1, 2, or 3 pages at once) and captions.
     function updateSlide() {
       if (!slides.length) return;
       const slide = slides[slidePointer] || { start: 0, count: 1 };
@@ -630,6 +671,7 @@ const {
       updateSlideProgressBar();
     }
 
+    // Hide the modal and return to the grid page containing the last slide.
     function closeModal() {
       modalEl.classList.remove("active");
       if (slideProgressWrap) slideProgressWrap.style.display = "none";
@@ -638,6 +680,7 @@ const {
       renderPage(page);
     }
 
+    // Calculate if a click landed outside the drawn portion of an image.
     function clickedOutsideRenderedImage(event, imgEl) {
       if (!imgEl) return false;
       const rect = imgEl.getBoundingClientRect();
@@ -659,6 +702,7 @@ const {
       return !(withinX && withinY);
     }
 
+    // If all images on stage were missed by the click, treat it as an outside click.
     function clickedOutsideRenderedStage(event, stageEl) {
       if (!stageEl) return true;
       const imgs = Array.from(stageEl.querySelectorAll("img"));
@@ -666,10 +710,12 @@ const {
       return imgs.every((img) => clickedOutsideRenderedImage(event, img));
     }
 
+    // Release object URLs to avoid leaking memory when switching folders.
     function cleanupLocalUrls() {
       localObjectUrls.splice(0).forEach((url) => URL.revokeObjectURL(url));
     }
 
+    // Reset slide state when switching books or sources.
     function resetSlides() {
       slides = [];
       slidePointer = 0;
@@ -678,6 +724,7 @@ const {
       metaPromises.length = 0;
     }
 
+    // Lazily fetch image natural size so auto pairing can guess portrait vs landscape.
     function ensureMeta(index) {
       if (imageMeta[index]) return Promise.resolve(imageMeta[index]);
       if (metaPromises[index]) return metaPromises[index];
@@ -704,6 +751,7 @@ const {
       return promise;
     }
 
+    // Decide if two pages should be paired automatically.
     function shouldAutoPair(meta) {
       if (!meta) return false;
       const { width, height } = meta;
@@ -713,6 +761,7 @@ const {
       return aspect <= 0.8;
     }
 
+    // Build slide windows based on mode (auto/single/double/triple).
     async function rebuildSlides(targetIndex = 0) {
       slides = [];
       slidePointer = 0;
@@ -739,6 +788,7 @@ const {
       slidePointer = findSlidePointer(targetIndex);
     }
 
+    // Find the slide window that contains a specific image index.
     function findSlidePointer(targetIndex) {
       const found = slides.findIndex(
         (slide) => targetIndex >= slide.start && targetIndex < slide.start + slide.count
@@ -746,6 +796,7 @@ const {
       return found >= 0 ? found : 0;
     }
 
+    // Draw the current slide images into the modal stage.
     function renderSlideImages(indices) {
       modalStage.innerHTML = "";
       modalStage.classList.toggle("single", indices.length === 1);
@@ -760,6 +811,7 @@ const {
       });
     }
 
+    // Try to infer the folder name so books feel grouped naturally.
     function deriveFolderName(files) {
       if (!files.length) return "";
       const relPath = files[0].webkitRelativePath || files[0].name;
@@ -773,6 +825,7 @@ const {
       return parts.length > 1 ? parts[0] : fallbackFolder || relPath || "未命名";
     }
 
+    // Group incoming files by top-level folder (book).
     function buildBooks(fileList, fallbackFolder) {
       const groups = new Map();
       Array.from(fileList).forEach((file) => {
@@ -786,6 +839,7 @@ const {
         .map(([name, files]) => ({ name, files }));
     }
 
+    // Convert File objects into { name, src } pairs and keep track of blob URLs for cleanup.
     function mapFilesToImages(fileArray) {
       return fileArray.map((file) => {
         const url = URL.createObjectURL(file);
@@ -797,6 +851,7 @@ const {
       }).sort(sortByName);
     }
 
+    // Switch the active book and refresh everything that depends on it.
     function setActiveBook(index, sourceKey, defaultFolderName, resumeSlide, resumeSlideIndex) {
       if (!books.length) return;
       const total = books.length;
@@ -836,6 +891,7 @@ const {
       }
     }
 
+    // Enable/disable book navigation buttons based on collection size.
     function updateBookControls() {
       const total = books.length || 0;
       const current = total ? currentBookIndex + 1 : 0;
@@ -847,6 +903,7 @@ const {
       if (nextBookModalBtn) nextBookModalBtn.disabled = disabled;
     }
 
+    // Move to next/previous book (wraps around).
     function moveBook(delta) {
       if (!books.length || books.length <= 1) return;
       const targetIndex = currentBookIndex + delta;
@@ -860,6 +917,7 @@ const {
       );
     }
 
+    // Simple collapse toggle used by book lists + language chooser.
     function toggleCollapse(el) {
       if (!el) return;
       el.classList.toggle("open");
@@ -869,6 +927,7 @@ const {
       }
     }
 
+    // Draw book buttons in both the sidebar and modal.
     function renderBookList() {
       const containers = [
         { root: bookListEl, collapse: bookCollapseEl },
@@ -904,6 +963,7 @@ const {
       });
     }
 
+    // Basic file filter for images.
     function isImageFile(name) {
       return /\.(png|jpe?g|webp)$/i.test(name);
     }
@@ -912,6 +972,7 @@ const {
       return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
     }
 
+    // Load the right data for a book depending on its source.
     function loadBookItems(book) {
       if (!book) return [];
       if (book.files && book.files.length) {
@@ -927,6 +988,7 @@ const {
       return [];
     }
 
+    // Ensure the active book button stays visible inside the scrollable list.
     function scrollActiveBookIntoView(root) {
       if (!root) return;
       const activeBtn = root.querySelector(".book-btn.active");
@@ -935,6 +997,7 @@ const {
       }
     }
 
+    // Handle files from the picker or drag/drop and split them into books.
     function handleLocalFiles(fileList, sourceKey) {
       const resumeSlide = modalEl.classList.contains("active");
       const files = Array.from(fileList || []);
@@ -971,6 +1034,7 @@ const {
       );
     }
 
+    // Entry point for drag/drop on the window or drop zone.
     async function handleDropEvent(event, sourceKey = "drop") {
       if (!isFileDrag(event)) return;
       event.preventDefault();
@@ -984,6 +1048,7 @@ const {
       handleLocalFiles(files, sourceKey);
     }
 
+    // Recursively walk a DataTransferItem that is a directory and return contained files.
     function entryToFiles(entry) {
       return new Promise((resolve) => {
         if (entry.isFile) {
@@ -1025,6 +1090,7 @@ const {
       });
     }
 
+    // Turn a DataTransfer into a flat array of File objects (supports nested folders).
     async function extractFilesFromDataTransfer(dataTransfer) {
       if (!dataTransfer) return [];
       const items = Array.from(dataTransfer.items || []);
@@ -1041,6 +1107,7 @@ const {
       return Array.from(dataTransfer.files || []);
     }
 
+    // Kick off the app with default settings.
     applyLanguageText();
     setWidth(widthSlider.value);
     loadImagesFromServer();

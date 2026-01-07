@@ -1,3 +1,7 @@
+// Very small i18n helper.
+// - `map` holds language packs (Chinese + English).
+// - `current` points to the active language code.
+// - `t()` reads a key and returns the translated string (functions allow interpolation).
 export const i18n = {
   current: "zh",
   map: {
@@ -118,6 +122,7 @@ export const i18n = {
   },
 };
 
+// Replaces button text while keeping the existing hotkey <span> in place.
 export function setButtonLabel(button, label) {
   if (!button) return;
   const hotkey = button.querySelector(".hotkey");
@@ -125,6 +130,7 @@ export function setButtonLabel(button, label) {
   if (hotkey) button.appendChild(hotkey);
 }
 
+// Maps a source key (local/server/drag) to a translated label.
 export function getSourceLabel(key) {
   const lookup = {
     local: "sourceLocal",

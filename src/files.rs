@@ -1,3 +1,4 @@
+// File helpers for validating folders and reading image names.
 use anyhow::{Context, Result, bail};
 use std::{
     fs,
@@ -5,6 +6,7 @@ use std::{
 };
 
 pub fn validate_directory(path: PathBuf) -> Result<PathBuf> {
+    // Make sure the provided path exists and is a directory.
     let metadata =
         fs::metadata(&path).with_context(|| format!("could not read {}", path.display()))?;
     if !metadata.is_dir() {
@@ -14,6 +16,7 @@ pub fn validate_directory(path: PathBuf) -> Result<PathBuf> {
 }
 
 pub fn load_images(dir: &Path) -> Result<Vec<String>> {
+    // Read filenames that look like images inside the directory.
     let mut files = Vec::new();
     for entry in fs::read_dir(dir).with_context(|| format!("failed to read {}", dir.display()))? {
         let entry = entry?;
@@ -25,11 +28,12 @@ pub fn load_images(dir: &Path) -> Result<Vec<String>> {
         }
     }
 
-    files.sort();
+    files.sort(); // Keep names in stable order (001.png, 002.png, ...)
     Ok(files)
 }
 
 pub fn content_type_for(name: &str) -> &'static str {
+    // Basic MIME type lookup so the browser displays images correctly.
     match Path::new(name)
         .extension()
         .and_then(|ext| ext.to_str())

@@ -1,3 +1,6 @@
+/* Styling for the Comic Reader UI. Kept compact but commented so beginners can follow. */
+
+/* Theme tokens: tweak these to change the whole look quickly. */
 :root {
       --bg: linear-gradient(135deg, #0f172a, #1f2937);
       --panel: rgba(255, 255, 255, 0.08);
@@ -7,6 +10,8 @@
       --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
       --img-width: 100%;
     }
+
+    /* Basic reset + layout shell */
     * { box-sizing: border-box; }
     body {
       margin: 0;
@@ -20,6 +25,8 @@
     main { padding: 12px 14px; width: 100%; max-width: 1280px; margin: 0 auto; flex: 1; }
     .layout { display: flex; gap: 16px; align-items: flex-start; }
     .title-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+    /* Sidebar with controls */
     .sidebar {
       width: 260px;
       background: var(--panel);
@@ -80,6 +87,8 @@
     button:hover { border-color: rgba(249, 115, 22, 0.6); transform: translateY(-1px); }
     button.primary { background: var(--accent); color: #111827; border: none; }
     .controls-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+
+    /* Collapsible book lists */
     .collapse { display: flex; flex-direction: column; gap: 6px; }
     .collapse-panel {
       display: none;
@@ -95,6 +104,8 @@
     .collapse.open .collapse-panel { display: flex; }
     .collapse .book-btn { width: 100%; text-align: left; padding: 8px 10px; }
     .collapse .book-btn.active { border-color: rgba(249, 115, 22, 0.8); color: #fbbf24; }
+
+    /* Gallery area */
     .content { flex: 1; min-width: 0; }
     .status { color: var(--muted); margin: 8px 0 12px; }
     .grid {
@@ -131,6 +142,8 @@
     }
     .pager { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .pager span { color: var(--muted); font-weight: 600; }
+
+    /* Folder drop zone styling */
     .drop-zone {
       border: 1px dashed rgba(255, 255, 255, 0.25);
       border-radius: 12px;
@@ -155,6 +168,7 @@
       color: var(--text);
       word-break: break-all;
     }
+
     /* Modal */
     .modal {
       position: fixed;
@@ -265,6 +279,8 @@
       color: var(--muted);
       margin-top: 50px;
     }
+
+    /* Mobile tweaks: stack layout, shrink thumbnails, reflow modal controls */
     @media (max-width: 640px) {
       .layout { flex-direction: column; }
       .sidebar { width: 100%; position: relative; top: 0; }
