@@ -22,7 +22,7 @@ target/release/my-comic-reading --dir /path/to/comics --port 4000 --browser defa
 
 - Omit `--dir` to pick a folder in the UI.
 - `--port` defaults to `4000`.
-- `--browser` chooses which browser to open (`default`, `firefox`, `chrome`, `safari`).
+- `--browser` chooses which browser to open (`default`, `edge`, `brave`).
 
 Or just run
 

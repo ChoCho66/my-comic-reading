@@ -1,6 +1,5 @@
-// Collects all DOM element references in one place so the rest of the app
-// can use them without repeatedly calling document.getElementById.
 export function initDomRefs() {
+  // Step 5.4: Collect DOM references used by the main app module.
   const byId = (id) => document.getElementById(id);
 
   return {

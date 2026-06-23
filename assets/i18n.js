@@ -1,7 +1,4 @@
-// Very small i18n helper.
-// - `map` holds language packs (Chinese + English).
-// - `current` points to the active language code.
-// - `t()` reads a key and returns the translated string (functions allow interpolation).
+// Step 5.5: Provide language packs and helpers used to redraw UI text.
 export const i18n = {
   current: "zh",
   map: {

@@ -12,10 +12,11 @@ pub enum BrowserChoice {
 }
 
 pub async fn launch_browser(choice: BrowserChoice, url: &str) -> Result<()> {
-    // Spawn the browser work on a blocking thread so we don't stall async tasks.
+    // Step 3.1: Run browser launch work on a blocking thread.
     let url = url.to_string();
     tokio::task::spawn_blocking(move || -> Result<()> {
         match choice {
+            // Step 3.2: Open the default browser when requested.
             BrowserChoice::Default => {
                 webbrowser::open(&url).context("open default browser failed")?;
             }
@@ -30,6 +31,7 @@ pub async fn launch_browser(choice: BrowserChoice, url: &str) -> Result<()> {
 }
 
 fn open_edge(url: &str) -> Result<()> {
+    // Step 3.3: Open Microsoft Edge with platform-specific commands.
     // macOS: use `open -a` to target the Edge app bundle.
     if cfg!(target_os = "macos") {
         Command::new("open")
@@ -61,6 +63,7 @@ fn open_edge(url: &str) -> Result<()> {
 }
 
 fn open_brave(url: &str) -> Result<()> {
+    // Step 3.4: Open Brave with platform-specific commands.
     // macOS: use `open -a` with the Brave app bundle name.
     if cfg!(target_os = "macos") {
         Command::new("open")

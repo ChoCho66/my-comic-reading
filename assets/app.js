@@ -55,6 +55,7 @@ const {
 
 // --- Language + UI text handling ---
 
+    // Step 6.1: Apply the active language to every visible UI label.
     function applyLanguageText() {
       // Redraw every label based on the active language.
       const langPack = i18n.map[i18n.current] || i18n.map.zh;
@@ -149,6 +150,7 @@ const {
       }
       applyLanguageText();
     }
+    // Step 6.2: Initialize gallery, slideshow, book, and status state.
     // --- Core state ---
     const PAGE_SIZE = 20;               // How many thumbnails per page in the grid.
     let images = [];                    // Currently loaded image items for the active book.
@@ -173,6 +175,7 @@ const {
       return !!dt && Array.from(dt.types || []).includes("Files");
     }
 
+    // Step 6.3: Wire UI events for folder loading, navigation, slideshow, books, and language.
     // --- UI event wiring ---
     folderPickerBtn.addEventListener("click", () => folderInput.click());
     folderInput.addEventListener("change", () => {
@@ -350,7 +353,7 @@ const {
     });
     window.addEventListener("drop", (e) => handleDropEvent(e, "windowDrop"));
 
-    // Fetch pre-hosted images from /api/images so the app works even without a folder drop.
+    // Step 6.4: Fetch server-provided images from /api/images.
     async function loadImagesFromServer() {
       try {
         const res = await fetch("/api/images");
@@ -373,7 +376,7 @@ const {
       }
     }
 
-    // Render a grid page of thumbnails.
+    // Step 7.1: Render the current gallery page of thumbnails and captions.
     function renderPage(page = 1) {
       currentPage = page;
       const start = (page - 1) * PAGE_SIZE;
@@ -409,7 +412,7 @@ const {
       pageSelect.value = String(page);
     }
 
-    // Move to previous or next page in the grid.
+    // Step 7.2: Move between gallery pages.
     function changePage(delta) {
       const next = currentPage + delta;
       const totalPages = Math.max(1, Math.ceil(images.length / PAGE_SIZE));
@@ -417,7 +420,7 @@ const {
       renderPage(next);
     }
 
-    // Rebuild the page dropdown whenever total pages change.
+    // Step 7.2: Rebuild the page dropdown whenever total pages change.
     function updatePageSelect(totalPages) {
       if (!pageSelect) return;
       const frag = document.createDocumentFragment();
@@ -431,7 +434,7 @@ const {
       pageSelect.appendChild(frag);
     }
 
-    // Keep status text unified (supports interpolation).
+    // Step 7.3: Format and refresh status text for the current source and language.
     function formatStatus(key, params) {
       if (key === "statusCount") {
         const imageTotal = params && typeof params.images === "number" ? params.images : images.length;
@@ -465,7 +468,7 @@ const {
       statusEl.textContent = formatStatus(statusKey, statusParams);
     }
 
-    // Jump to a selected page when the dropdown changes.
+    // Step 7.2: Jump to a selected gallery page from the dropdown.
     function onSelectPage() {
       const totalPages = Math.max(1, Math.ceil(images.length / PAGE_SIZE));
       const target = parseInt(pageSelect.value, 10);
@@ -474,7 +477,7 @@ const {
       renderPage(page);
     }
 
-    // Adjust displayed image width and mirror the slider value back to the UI.
+    // Step 7.4: Adjust displayed image width and mirror the slider value back to the UI.
     function setWidth(val) {
       // Snap to the nearest 5% so widths are 100%, 95%, 90%, ...
       const num = Number(val);
@@ -517,7 +520,7 @@ const {
       if (modalSlideModeSelect) modalSlideModeSelect.value = slideMode;
     }
 
-    // Change slide mode, rebuild slide windows, and optionally refresh modal.
+    // Step 9.1: Change slide mode, rebuild slide windows, and optionally refresh modal.
     function applySlideMode(mode, targetIndex) {
       slideMode = mode || "auto";
       syncSlideModeSelectors();
@@ -535,7 +538,7 @@ const {
       return Math.floor(idx / PAGE_SIZE) + 1;
     }
 
-    // Open the modal and start the slideshow from a target image.
+    // Step 9.2: Open the modal and start the slideshow from a target image.
     async function startSlideshow(index) {
       if (!images.length) return;
       const pageStart = currentPageStartIndex();
@@ -550,7 +553,7 @@ const {
       updateSlide();
     }
 
-    // Move forwards/backwards through slides, crossing book boundaries when needed.
+    // Step 9.3: Move through slides and cross book boundaries when needed.
     async function moveSlide(delta) {
       if (!images.length) return;
 
@@ -602,7 +605,7 @@ const {
       updateSlide();
     }
 
-    // Jump to a specific slide index (0-based).
+    // Step 9.4: Jump to a specific image index.
     async function jumpToSlideIndex(targetIndex) {
       if (!images.length) return;
       const clamped = Math.min(Math.max(0, targetIndex), Math.max(0, images.length - 1));
@@ -612,7 +615,7 @@ const {
       updateSlide();
     }
 
-    // Jump using a fraction (0..1) instead of an absolute index.
+    // Step 9.4: Jump using a fraction (0..1) instead of an absolute index.
     function jumpToSlideProgress(fraction) {
       if (!images.length) return;
       const frac = Math.min(Math.max(fraction, 0), 1);
@@ -636,7 +639,7 @@ const {
       }
     }
 
-    // Render the current slide (1, 2, or 3 pages at once) and captions.
+    // Step 9.7: Render the active slide images and caption.
     function updateSlide() {
       if (!slides.length) return;
       const slide = slides[slidePointer] || { start: 0, count: 1 };
@@ -671,7 +674,7 @@ const {
       updateSlideProgressBar();
     }
 
-    // Hide the modal and return to the grid page containing the last slide.
+    // Step 9.8: Close the modal and return to the gallery page containing the last slide.
     function closeModal() {
       modalEl.classList.remove("active");
       if (slideProgressWrap) slideProgressWrap.style.display = "none";
@@ -710,12 +713,12 @@ const {
       return imgs.every((img) => clickedOutsideRenderedImage(event, img));
     }
 
-    // Release object URLs to avoid leaking memory when switching folders.
+    // Step 8.1: Release object URLs when switching sources or books.
     function cleanupLocalUrls() {
       localObjectUrls.splice(0).forEach((url) => URL.revokeObjectURL(url));
     }
 
-    // Reset slide state when switching books or sources.
+    // Step 8.1: Reset slideshow metadata when switching sources or books.
     function resetSlides() {
       slides = [];
       slidePointer = 0;
@@ -724,7 +727,7 @@ const {
       metaPromises.length = 0;
     }
 
-    // Lazily fetch image natural size so auto pairing can guess portrait vs landscape.
+    // Step 9.5: Lazily read image dimensions for auto page pairing.
     function ensureMeta(index) {
       if (imageMeta[index]) return Promise.resolve(imageMeta[index]);
       if (metaPromises[index]) return metaPromises[index];
@@ -751,7 +754,7 @@ const {
       return promise;
     }
 
-    // Decide if two pages should be paired automatically.
+    // Step 9.5: Decide whether auto mode should pair pages.
     function shouldAutoPair(meta) {
       if (!meta) return false;
       const { width, height } = meta;
@@ -761,7 +764,7 @@ const {
       return aspect <= 0.8;
     }
 
-    // Build slide windows based on mode (auto/single/double/triple).
+    // Step 9.6: Build slide windows based on mode (auto/single/double/triple).
     async function rebuildSlides(targetIndex = 0) {
       slides = [];
       slidePointer = 0;
@@ -796,7 +799,7 @@ const {
       return found >= 0 ? found : 0;
     }
 
-    // Draw the current slide images into the modal stage.
+    // Step 9.7: Draw the current slide images into the modal stage.
     function renderSlideImages(indices) {
       modalStage.innerHTML = "";
       modalStage.classList.toggle("single", indices.length === 1);
@@ -825,7 +828,7 @@ const {
       return parts.length > 1 ? parts[0] : fallbackFolder || relPath || "未命名";
     }
 
-    // Group incoming files by top-level folder (book).
+    // Step 8.2: Group incoming files by top-level folder.
     function buildBooks(fileList, fallbackFolder) {
       const groups = new Map();
       Array.from(fileList).forEach((file) => {
@@ -839,7 +842,7 @@ const {
         .map(([name, files]) => ({ name, files }));
     }
 
-    // Convert File objects into { name, src } pairs and keep track of blob URLs for cleanup.
+    // Step 8.3: Convert File objects into image items backed by blob URLs.
     function mapFilesToImages(fileArray) {
       return fileArray.map((file) => {
         const url = URL.createObjectURL(file);
@@ -851,7 +854,7 @@ const {
       }).sort(sortByName);
     }
 
-    // Switch the active book and refresh everything that depends on it.
+    // Step 8.4: Activate a book and refresh state, grid, and controls.
     function setActiveBook(index, sourceKey, defaultFolderName, resumeSlide, resumeSlideIndex) {
       if (!books.length) return;
       const total = books.length;
@@ -891,7 +894,7 @@ const {
       }
     }
 
-    // Enable/disable book navigation buttons based on collection size.
+    // Step 10.1: Enable, disable, and label book navigation controls.
     function updateBookControls() {
       const total = books.length || 0;
       const current = total ? currentBookIndex + 1 : 0;
@@ -903,7 +906,7 @@ const {
       if (nextBookModalBtn) nextBookModalBtn.disabled = disabled;
     }
 
-    // Move to next/previous book (wraps around).
+    // Step 10.2: Move to the next or previous book.
     function moveBook(delta) {
       if (!books.length || books.length <= 1) return;
       const targetIndex = currentBookIndex + delta;
@@ -927,7 +930,7 @@ const {
       }
     }
 
-    // Draw book buttons in both the sidebar and modal.
+    // Step 10.3: Draw book buttons in both the sidebar and modal.
     function renderBookList() {
       const containers = [
         { root: bookListEl, collapse: bookCollapseEl },
@@ -997,7 +1000,7 @@ const {
       }
     }
 
-    // Handle files from the picker or drag/drop and split them into books.
+    // Step 8.5: Handle files from the picker or drag/drop and split them into books.
     function handleLocalFiles(fileList, sourceKey) {
       const resumeSlide = modalEl.classList.contains("active");
       const files = Array.from(fileList || []);
@@ -1034,7 +1037,7 @@ const {
       );
     }
 
-    // Entry point for drag/drop on the window or drop zone.
+    // Step 8.6: Handle drag/drop events and flatten dropped folders.
     async function handleDropEvent(event, sourceKey = "drop") {
       if (!isFileDrag(event)) return;
       event.preventDefault();
@@ -1048,7 +1051,7 @@ const {
       handleLocalFiles(files, sourceKey);
     }
 
-    // Recursively walk a DataTransferItem that is a directory and return contained files.
+    // Step 8.6: Recursively walk a DataTransferItem directory and return contained files.
     function entryToFiles(entry) {
       return new Promise((resolve) => {
         if (entry.isFile) {
@@ -1090,7 +1093,7 @@ const {
       });
     }
 
-    // Turn a DataTransfer into a flat array of File objects (supports nested folders).
+    // Step 8.6: Turn a DataTransfer into a flat array of File objects.
     async function extractFilesFromDataTransfer(dataTransfer) {
       if (!dataTransfer) return [];
       const items = Array.from(dataTransfer.items || []);
@@ -1107,7 +1110,7 @@ const {
       return Array.from(dataTransfer.files || []);
     }
 
-    // Kick off the app with default settings.
+    // Step 6.5: Kick off the app with default UI settings and initial server images.
     applyLanguageText();
     setWidth(widthSlider.value);
     loadImagesFromServer();

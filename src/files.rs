@@ -6,7 +6,7 @@ use std::{
 };
 
 pub fn validate_directory(path: PathBuf) -> Result<PathBuf> {
-    // Make sure the provided path exists and is a directory.
+    // Step 2.1: Make sure the provided path exists and is a directory.
     let metadata =
         fs::metadata(&path).with_context(|| format!("could not read {}", path.display()))?;
     if !metadata.is_dir() {
@@ -16,7 +16,7 @@ pub fn validate_directory(path: PathBuf) -> Result<PathBuf> {
 }
 
 pub fn load_images(dir: &Path) -> Result<Vec<String>> {
-    // Read filenames that look like images inside the directory.
+    // Step 2.2: Read supported image filenames inside the directory.
     let mut files = Vec::new();
     for entry in fs::read_dir(dir).with_context(|| format!("failed to read {}", dir.display()))? {
         let entry = entry?;
@@ -33,7 +33,7 @@ pub fn load_images(dir: &Path) -> Result<Vec<String>> {
 }
 
 pub fn content_type_for(name: &str) -> &'static str {
-    // Basic MIME type lookup so the browser displays images correctly.
+    // Step 2.3: Map image extensions to MIME types for browser rendering.
     match Path::new(name)
         .extension()
         .and_then(|ext| ext.to_str())
@@ -49,7 +49,10 @@ pub fn content_type_for(name: &str) -> &'static str {
 
 fn is_image(path: &Path) -> bool {
     match path.extension().and_then(|ext| ext.to_str()) {
-        Some(ext) => matches!(ext.to_ascii_lowercase().as_str(), "png" | "jpg" | "jpeg" | "webp"),
+        Some(ext) => matches!(
+            ext.to_ascii_lowercase().as_str(),
+            "png" | "jpg" | "jpeg" | "webp"
+        ),
         None => false,
     }
 }

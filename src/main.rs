@@ -31,8 +31,10 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Parse CLI flags and validate initial directory if provided.
+    // Step 1.1: Parse CLI flags with Clap.
     let args = Args::parse();
+
+    // Step 1.2: Validate the optional initial directory and load initial images.
     let initial_dir = match args.dir {
         Some(dir) => Some(validate_directory(dir)?),
         None => None,
@@ -53,18 +55,18 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Create shared app state and router.
+    // Step 1.3: Create shared app state and build the Axum router.
     let state = AppState::new(initial_dir, initial_images);
     let app = app_router(state);
 
-    // Bind to localhost and build the base URL.
+    // Step 1.4: Bind to localhost and build the base URL.
     let addr = SocketAddr::from(([127, 0, 0, 1], args.port));
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .context("failed to bind to port")?;
     let url = format!("http://{}", listener.local_addr()?);
 
-    // Launch the browser without blocking server startup.
+    // Step 1.5: Launch the browser without blocking server startup.
     let browser_choice = args.browser;
     let browser_url = url.clone();
     tokio::spawn(async move {
@@ -76,14 +78,14 @@ async fn main() -> Result<()> {
     println!("Serving comics at {url}");
     println!("Press Ctrl+C to stop the server.");
 
-    // Run the Axum server with Ctrl+C graceful shutdown.
+    // Step 1.6: Run the Axum server with Ctrl+C graceful shutdown.
     let server = axum::serve(listener, app).with_graceful_shutdown(shutdown_signal());
     server.await.context("server error")?;
     Ok(())
 }
 
 async fn shutdown_signal() {
-    // Wait for Ctrl+C so the server can exit cleanly.
+    // Step 1.7: Wait for Ctrl+C so the server can exit cleanly.
     let _ = signal::ctrl_c().await;
     println!("\nShutting down...");
 }

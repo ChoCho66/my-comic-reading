@@ -12,6 +12,7 @@ use std::{fs, path::PathBuf, sync::Arc};
 
 use crate::files::{content_type_for, load_images, validate_directory};
 
+// Step 4.1: Store the active directory and image list in shared async state.
 #[derive(Clone)]
 pub struct AppState {
     pub dir: Arc<tokio::sync::Mutex<Option<PathBuf>>>,
@@ -46,6 +47,7 @@ struct SelectDirResponse {
 }
 
 const PAGE_SIZE: usize = 20;
+// Step 4.2: Embed web assets into the Rust binary.
 const INDEX_HTML: &str = include_str!("../assets/index.html");
 const APP_JS: &str = include_str!("../assets/app.js");
 const STYLES_CSS: &str = include_str!("../assets/styles.css");
@@ -55,7 +57,7 @@ const I18N_JS: &str = include_str!("../assets/i18n.js");
 const DOM_JS: &str = include_str!("../assets/dom.js");
 
 pub fn app_router(state: AppState) -> Router {
-    // Wire up routes for the page, static assets, APIs, and image streaming.
+    // Step 4.3: Register routes for the page, assets, APIs, and image streaming.
     Router::new()
         .route("/", get(index))
         .route("/assets/:name", get(get_asset))
@@ -66,11 +68,12 @@ pub fn app_router(state: AppState) -> Router {
 }
 
 async fn index() -> impl IntoResponse {
+    // Step 4.4: Serve the app shell at `/`.
     Html(INDEX_HTML)
 }
 
 async fn get_asset(AxumPath(name): AxumPath<String>) -> impl IntoResponse {
-    // Serve inlined assets from constants instead of hitting the filesystem.
+    // Step 4.5: Serve embedded assets from constants instead of the filesystem.
     match name.as_str() {
         "styles.css" => asset_response(STYLES_CSS, "text/css; charset=utf-8"),
         "app.js" => asset_response(APP_JS, "application/javascript; charset=utf-8"),
@@ -83,8 +86,8 @@ async fn get_asset(AxumPath(name): AxumPath<String>) -> impl IntoResponse {
 }
 
 async fn api_images(State(state): State<AppState>) -> impl IntoResponse {
+    // Step 4.6: Return the active image names and frontend page size.
     let images = state.images.lock().await.clone();
-    // Send the image names + page size so the frontend can paginate.
     Json(ImagesResponse {
         images,
         page_size: PAGE_SIZE,
@@ -95,7 +98,7 @@ async fn select_dir(
     State(state): State<AppState>,
     Json(payload): Json<SelectDirRequest>,
 ) -> impl IntoResponse {
-    // Validate the incoming path, read images, then update shared state.
+    // Step 4.7: Validate the submitted path, load images, and update shared state.
     let trimmed = payload.path.trim();
     if trimmed.is_empty() {
         return (
@@ -155,7 +158,7 @@ async fn select_dir(
 }
 
 async fn get_image(State(state): State<AppState>, AxumPath(name): AxumPath<String>) -> Response {
-    // Quick guard against path traversal attempts.
+    // Step 4.8: Guard against path traversal, read the image, and return it.
     if name.contains("..") || name.contains('/') || name.contains('\\') {
         return StatusCode::BAD_REQUEST.into_response();
     }
@@ -189,6 +192,7 @@ async fn get_image(State(state): State<AppState>, AxumPath(name): AxumPath<Strin
 }
 
 fn asset_response(body: &'static str, content_type: &'static str) -> Response {
+    // Step 4.9: Build reusable responses for embedded assets.
     let mut res = Response::new(Body::from(body));
     res.headers_mut().insert(
         header::CONTENT_TYPE,

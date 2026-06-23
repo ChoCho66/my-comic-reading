@@ -1,10 +1,10 @@
-// Fetches the static HTML layout and injects it into the page.
-// Doing this keeps `index.html` tiny and lets us edit the layout in one place.
 async function loadLayout() {
+  // Step 5.2: Fetch the static layout HTML before the main app runs.
   const res = await fetch("/assets/layout.html");
   const html = await res.text();
   const root = document.getElementById("app-root");
   if (root) {
+    // Step 5.2: Inject the layout into the app mount point.
     root.innerHTML = html;
   } else {
     // Fallback: if #app-root is missing, append to <body> so the page still works.
@@ -12,9 +12,9 @@ async function loadLayout() {
   }
 }
 
-// Boot sequence: load the layout first, then pull in the main app module.
 async function boot() {
   await loadLayout();
+  // Step 5.3: Import the main app module after the layout exists.
   await import("/assets/app.js");
 }
 
